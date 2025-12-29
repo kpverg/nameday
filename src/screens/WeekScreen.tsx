@@ -1,0 +1,215 @@
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useState, useEffect } from 'react';
+import { Datanames } from '../../data/datanames';
+
+const GREEK_MONTHS = [
+  'Ιανουάριος',
+  'Φεβρουάριος',
+  'Μάρτιος',
+  'Απρίλιος',
+  'Μάιος',
+  'Ιούνιος',
+  'Ιούλιος',
+  'Αύγουστος',
+  'Σεπτέμβριος',
+  'Οκτώβριος',
+  'Νοέμβριος',
+  'Δεκέμβριος',
+];
+
+const GREEK_MONTHS_GENITIVE = [
+  'Ιανουαρίου',
+  'Φεβρουαρίου',
+  'Μαρτίου',
+  'Απριλίου',
+  'Μαΐου',
+  'Ιουνίου',
+  'Ιουλίου',
+  'Αυγούστου',
+  'Σεπτεμβρίου',
+  'Οκτωβρίου',
+  'Νοεμβρίου',
+  'Δεκεμβρίου',
+];
+
+const GREEK_WEEKDAYS = [
+  'Κυριακή',
+  'Δευτέρα',
+  'Τρίτη',
+  'Τετάρτη',
+  'Πέμπτη',
+  'Παρασκευή',
+  'Σάββατο',
+];
+
+interface DayInfo {
+  weekday: string;
+  date: string;
+  day: number;
+  month: string;
+  names: string[];
+  celebrations: string[];
+  isToday: boolean;
+}
+
+const DayCard = ({ item }: { item: DayInfo }) => (
+  <View style={[styles.dayCard, item.isToday && styles.dayCardToday]}>
+    <View style={styles.dayHeader}>
+      <Text style={[styles.dayName, item.isToday && styles.dayNameToday]}>
+        {item.weekday}
+      </Text>
+      <Text style={[styles.dayDate, item.isToday && styles.dayDateToday]}>
+        {item.date}
+      </Text>
+    </View>
+
+    {item.names.length > 0 && (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ονόματα:</Text>
+        <Text style={styles.namesText}>{item.names.join(', ')}</Text>
+      </View>
+    )}
+
+    {item.celebrations.length > 0 && (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Εορτές:</Text>
+        {item.celebrations.map((celebration, index) => (
+          <Text key={index} style={styles.celebrationText}>
+            • {celebration}
+          </Text>
+        ))}
+      </View>
+    )}
+
+    {item.names.length === 0 && item.celebrations.length === 0 && (
+      <Text style={styles.noData}>Δεν υπάρχουν αναγραφές</Text>
+    )}
+  </View>
+);
+
+export const WeekScreen = () => {
+  const [weekData, setWeekData] = useState<DayInfo[]>([]);
+
+  useEffect(() => {
+    const today = new Date();
+    const weekDays: DayInfo[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+
+      const monthName = GREEK_MONTHS[date.getMonth()];
+      const dayNum = date.getDate();
+      const weekday = GREEK_WEEKDAYS[date.getDay()];
+      const monthGenitive = GREEK_MONTHS_GENITIVE[date.getMonth()];
+
+      const entry = Datanames.find(
+        e => e.month === monthName && e.day === dayNum,
+      );
+
+      weekDays.push({
+        weekday,
+        date: `${String(dayNum).padStart(2, '0')} ${monthGenitive}`,
+        day: dayNum,
+        month: monthName,
+        names: entry?.names ?? [],
+        celebrations: entry?.celebrations ?? [],
+        isToday: i === 0,
+      });
+    }
+
+    setWeekData(weekDays);
+  }, []);
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Εβδομάδα</Text>
+      <Text style={styles.subtitle}>Εορτές των επόμενων 7 ημερών</Text>
+      <View style={styles.weekContent}>
+        {weekData.map((day, index) => (
+          <DayCard key={index} item={day} />
+        ))}
+      </View>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 20,
+  },
+  weekContent: {
+    marginBottom: 20,
+  },
+  dayCard: {
+    backgroundColor: '#F9FAFB',
+    borderLeftWidth: 4,
+    borderLeftColor: '#1E6AC7',
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 4,
+  },
+  dayCardToday: {
+    backgroundColor: '#DBEAFE',
+    borderLeftColor: '#0EA5E9',
+  },
+  dayHeader: {
+    marginBottom: 12,
+  },
+  dayName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E6AC7',
+  },
+  dayNameToday: {
+    color: '#0EA5E9',
+  },
+  dayDate: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  dayDateToday: {
+    color: '#0284C7',
+    fontWeight: '600',
+  },
+  section: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  namesText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  celebrationText: {
+    fontSize: 13,
+    color: '#374151',
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  noData: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+});
