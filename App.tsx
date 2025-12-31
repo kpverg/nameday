@@ -13,16 +13,23 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { AppProvider } from './src/AppContext';
+import { AppProvider, useAppContext } from './src/AppContext';
 import MainScreen from './src/screens/MainScreen';
 import SplashLoading from './src/SplashLoading';
 import { useState, useEffect } from 'react';
 
-function App() {
+function AppContent() {
+  const { isLoading } = useAppContext();
   const isDarkMode = useColorScheme() === 'dark';
-  const [isLoading, setIsLoading] = useState(true);
+  const [showApp, setShowApp] = useState(!isLoading);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading) {
+      setShowApp(true);
+    }
+  }, [isLoading]);
+
+  if (!showApp) {
     // Fallback inline splash in case import resolution misbehaves
     const InlineSplash = ({ onComplete }: { onComplete: () => void }) => {
       useEffect(() => {
@@ -44,13 +51,21 @@ function App() {
 
     // Prefer external component; fallback to inline if undefined
     const Comp: any = SplashLoading ?? InlineSplash;
-    return <Comp onComplete={() => setIsLoading(false)} />;
+    return <Comp onComplete={() => setShowApp(true)} />;
   }
 
   return (
-    <AppProvider>
+    <>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <MainScreen />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <AppProvider>
+      <AppContent />
     </AppProvider>
   );
 }

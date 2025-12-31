@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Datanames } from '../../data/datanames';
+import { getMovableNamedayEntries } from '../../data/movingCelebrations';
+import { worldDaysJanFeb } from '../../data/worldday';
+import { useAppContext } from '../AppContext';
 
 const GREEK_MONTHS = [
   'Ιανουάριος',
@@ -53,18 +56,22 @@ const DayItem = ({
   day,
   celebrations,
   names,
+  worldDays,
   isToday,
   year,
   monthIndex,
   monthNameGenitive,
+  darkMode,
 }: {
   day: number;
   celebrations: string[];
   names: string[];
+  worldDays: string[];
   isToday: boolean;
   year: number;
   monthIndex: number;
   monthNameGenitive: string;
+  darkMode?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const date = new Date(year, monthIndex, day);
@@ -74,41 +81,114 @@ const DayItem = ({
   return (
     <TouchableOpacity
       onPress={() => setExpanded(!expanded)}
-      style={[styles.dayContainer, isToday && styles.todayContainer]}
+      style={[
+        styles.dayContainer,
+        isToday && styles.todayContainer,
+        darkMode && styles.dayContainerDark,
+      ]}
     >
       <View style={styles.dayHeader}>
-        <Text style={[styles.dayNumber, isToday && styles.todayNumber]}>
+        <Text
+          style={[
+            styles.dayNumber,
+            isToday && styles.todayNumber,
+            darkMode && styles.dayNumberDark,
+          ]}
+        >
           {weekdayName} {dayFormatted} {monthNameGenitive}
         </Text>
-        {(names.length > 0 || celebrations.length > 0) && (
+        {(names.length > 0 ||
+          celebrations.length > 0 ||
+          worldDays.length > 0) && (
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={20}
-            color={isToday ? '#0369A1' : '#1E6AC7'}
+            color={isToday ? '#0369A1' : darkMode ? '#60A5FA' : '#1E6AC7'}
           />
         )}
       </View>
       {expanded && (
-        <View style={styles.expandedContent}>
+        <View
+          style={[
+            styles.expandedContent,
+            darkMode && styles.expandedContentDark,
+          ]}
+        >
           {names.length > 0 && (
             <View style={styles.namesSection}>
-              <Text style={styles.sectionTitle}>Ονόματα:</Text>
-              <Text style={styles.namesText}>{names.join(', ')}</Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  darkMode && styles.sectionTitleDark,
+                ]}
+              >
+                Ονόματα:
+              </Text>
+              <Text
+                style={[styles.namesText, darkMode && styles.namesTextDark]}
+              >
+                {names.join(', ')}
+              </Text>
             </View>
           )}
           {celebrations.length > 0 && (
             <View style={styles.celebrationsSection}>
-              <Text style={styles.sectionTitle}>Εορτές:</Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  darkMode && styles.sectionTitleDark,
+                ]}
+              >
+                Εορτές:
+              </Text>
               {celebrations.map((celebration, idx) => (
-                <Text key={idx} style={styles.celebrationText}>
+                <Text
+                  key={idx}
+                  style={[
+                    styles.celebrationText,
+                    darkMode && styles.celebrationTextDark,
+                  ]}
+                >
                   • {celebration}
                 </Text>
               ))}
             </View>
           )}
-          {names.length === 0 && celebrations.length === 0 && (
-            <Text style={styles.noCelebrationsText}>Δεν υπάρχουν γιορτές</Text>
+          {worldDays.length > 0 && (
+            <View style={styles.celebrationsSection}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  darkMode && styles.sectionTitleDark,
+                ]}
+              >
+                Παγκόσμιες ημέρες:
+              </Text>
+              {worldDays.map((worldDay, idx) => (
+                <Text
+                  key={idx}
+                  style={[
+                    styles.celebrationText,
+                    darkMode && styles.celebrationTextDark,
+                  ]}
+                >
+                  • {worldDay}
+                </Text>
+              ))}
+            </View>
           )}
+          {names.length === 0 &&
+            celebrations.length === 0 &&
+            worldDays.length === 0 && (
+              <Text
+                style={[
+                  styles.noCelebrationsText,
+                  darkMode && styles.noCelebrationsTextDark,
+                ]}
+              >
+                Δεν υπάρχουν γιορτές
+              </Text>
+            )}
         </View>
       )}
     </TouchableOpacity>
@@ -116,21 +196,24 @@ const DayItem = ({
 };
 
 export const TotalCelebrationsScreen = () => {
+  const { globalDaysEnabled, darkModeEnabled, selectedYear } = useAppContext();
   const now = new Date();
-  const [displayMonthOffset, setDisplayMonthOffset] = useState(0);
+  const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
+    now.getMonth(),
+  );
+  const lastScrollTime = useRef(0);
+  const scrollDelay = 300; // milliseconds
 
   // Calculate the month to display
-  const displayDate = new Date(
-    now.getFullYear(),
-    now.getMonth() + displayMonthOffset,
-    1,
-  );
-  const displayMonthIndex = displayDate.getMonth();
+  const displayDate = new Date(selectedYear, displayMonthIndex, 1);
   const displayYear = displayDate.getFullYear();
   const monthName = GREEK_MONTHS[displayMonthIndex];
 
   // Get all celebrations for the display month
   const monthData = Datanames.filter(entry => entry.month === monthName);
+  const movingEntries = getMovableNamedayEntries(displayYear).filter(
+    e => e.month === monthName,
+  );
 
   // Create a map for quick lookup
   const celebrationsByDay: Record<number, string[]> = {};
@@ -140,6 +223,25 @@ export const TotalCelebrationsScreen = () => {
     }
     celebrationsByDay[entry.day].push(...(entry.celebrations || []));
   });
+  // Include movable feasts celebrations
+  movingEntries.forEach(entry => {
+    if (!celebrationsByDay[entry.day]) {
+      celebrationsByDay[entry.day] = [];
+    }
+    celebrationsByDay[entry.day].push(...(entry.celebrations || []));
+  });
+
+  // Find world days for the display month
+  const findWorldDaysForDay = (
+    dayNum: number,
+    displayMonthName: string,
+  ): string[] => {
+    if (!globalDaysEnabled) return [];
+    const dayString = `${dayNum} ${displayMonthName}`;
+    return worldDaysJanFeb
+      .filter(wd => wd.date === dayString || wd.date.includes(dayString))
+      .map(wd => wd.title);
+  };
 
   // Get the last day of the display month
   const lastDay = new Date(displayYear, displayMonthIndex + 1, 0).getDate();
@@ -155,29 +257,61 @@ export const TotalCelebrationsScreen = () => {
     const dayEntry = Datanames.find(
       entry => entry.month === monthName && entry.day === dayNum,
     );
+    const movingEntry = movingEntries.find(e => e.day === dayNum);
     return {
       day: dayNum,
       celebrations: celebrationsByDay[dayNum] || [],
-      names: dayEntry?.names || [],
+      names: [...(dayEntry?.names || []), ...(movingEntry?.names || [])],
+      worldDays: findWorldDaysForDay(dayNum, monthName),
       isToday: isCurrentMonth && dayNum === today,
     };
   });
 
-  const handlePrevMonth = () => setDisplayMonthOffset(displayMonthOffset - 1);
-  const handleNextMonth = () => setDisplayMonthOffset(displayMonthOffset + 1);
+  const handlePrevMonth = () => {
+    const now = Date.now();
+    if (now - lastScrollTime.current < scrollDelay) return;
+    lastScrollTime.current = now;
+    setDisplayMonthIndex(prev => (prev - 1 < 0 ? 0 : prev - 1));
+  };
+
+  const handleNextMonth = () => {
+    const now = Date.now();
+    if (now - lastScrollTime.current < scrollDelay) return;
+    lastScrollTime.current = now;
+    setDisplayMonthIndex(prev => (prev + 1 > 11 ? 11 : prev + 1));
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, darkModeEnabled && styles.containerDark]}>
+      <View style={[styles.header, darkModeEnabled && styles.headerDark]}>
         <TouchableOpacity onPress={handlePrevMonth} style={styles.navButton}>
-          <Ionicons name="chevron-back" size={24} color="#1E6AC7" />
+          <Ionicons
+            name="chevron-back"
+            size={24}
+            color={darkModeEnabled ? '#60A5FA' : '#1E6AC7'}
+          />
         </TouchableOpacity>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Οι εορτές του μήνα</Text>
-          <Text style={styles.subtitle}>{monthName}</Text>
+          <Text style={[styles.title, darkModeEnabled && styles.titleDark]}>
+            Οι εορτές του μήνα
+          </Text>
+          <Text
+            style={[styles.subtitle, darkModeEnabled && styles.subtitleDark]}
+          >
+            {monthName}
+          </Text>
+          <Text
+            style={[styles.yearText, darkModeEnabled && styles.yearTextDark]}
+          >
+            {selectedYear}
+          </Text>
         </View>
         <TouchableOpacity onPress={handleNextMonth} style={styles.navButton}>
-          <Ionicons name="chevron-forward" size={24} color="#1E6AC7" />
+          <Ionicons
+            name="chevron-forward"
+            size={24}
+            color={darkModeEnabled ? '#60A5FA' : '#1E6AC7'}
+          />
         </TouchableOpacity>
       </View>
       <FlatList
@@ -187,10 +321,12 @@ export const TotalCelebrationsScreen = () => {
             day={item.day}
             celebrations={item.celebrations}
             names={item.names}
+            worldDays={item.worldDays}
             isToday={item.isToday}
             year={displayYear}
             monthIndex={displayMonthIndex}
             monthNameGenitive={GREEK_MONTHS_GENITIVE[displayMonthIndex]}
+            darkMode={darkModeEnabled}
           />
         )}
         keyExtractor={item => String(item.day)}
@@ -207,11 +343,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
+  containerDark: {
+    backgroundColor: '#111827',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+  },
+  headerDark: {
+    backgroundColor: '#1F2937',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
   navButton: {
     padding: 8,
@@ -220,15 +365,29 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  yearText: {
+    fontSize: 14,
+    color: '#1E6AC7',
+    fontWeight: '600',
+  },
+  yearTextDark: {
+    color: '#93C5FD',
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 6,
   },
+  titleDark: {
+    color: '#F3F4F6',
+  },
   subtitle: {
     fontSize: 14,
     color: '#6b7280',
+  },
+  subtitleDark: {
+    color: '#9CA3AF',
   },
   dayContainer: {
     backgroundColor: '#F9FAFB',
@@ -237,6 +396,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#1E6AC7',
+  },
+  dayContainerDark: {
+    backgroundColor: '#1F2937',
+    borderLeftColor: '#60A5FA',
   },
   todayContainer: {
     backgroundColor: '#DBEAFE',
@@ -253,6 +416,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
+  expandedContentDark: {
+    borderTopColor: '#374151',
+  },
   namesSection: {
     marginBottom: 12,
   },
@@ -265,16 +431,25 @@ const styles = StyleSheet.create({
     color: '#1E6AC7',
     marginBottom: 6,
   },
+  sectionTitleDark: {
+    color: '#60A5FA',
+  },
   namesText: {
     fontSize: 13,
     color: '#374151',
     fontStyle: 'italic',
+  },
+  namesTextDark: {
+    color: '#E5E7EB',
   },
   dayNumber: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1E6AC7',
     marginBottom: 8,
+  },
+  dayNumberDark: {
+    color: '#60A5FA',
   },
   todayNumber: {
     color: '#0369A1',
@@ -285,9 +460,15 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 4,
   },
+  celebrationTextDark: {
+    color: '#E5E7EB',
+  },
   noCelebrationsText: {
     fontSize: 13,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  noCelebrationsTextDark: {
+    color: '#6B7280',
   },
 });

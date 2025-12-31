@@ -1,8 +1,11 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Datanames } from '../../data/datanames';
+import { getMovableNamedayEntries } from '../../data/movingCelebrations';
+import { worldDaysJanFeb } from '../../data/worldday';
+import { useAppContext } from '../AppContext';
 
 const GREEK_MONTHS = [
   'Ιανουάριος',
@@ -30,6 +33,7 @@ import { AddSchemaScreen } from './AddSchemaScreen';
 import { SettingsScreen } from './SettingsScreen';
 
 function DayScreenContent() {
+  const { globalDaysEnabled, darkModeEnabled } = useAppContext();
   const formatDate = () =>
     new Date().toLocaleDateString('el-GR', {
       weekday: 'long',
@@ -41,20 +45,55 @@ function DayScreenContent() {
   const [dateString, setDateString] = useState(formatDate());
   const [namesToday, setNamesToday] = useState<string[]>([]);
   const [celebrationToday, setCelebrationToday] = useState<string | null>(null);
+  const [worldDayToday, setWorldDayToday] = useState<string | null>(null);
 
   useEffect(() => {
     let timeoutId: any;
     const findNamedayLocal = (dt: Date) => {
       const monthName = GREEK_MONTHS[dt.getMonth()];
       const dayNum = dt.getDate();
-      return Datanames.find(e => e.month === monthName && e.day === dayNum);
+      const staticEntry = Datanames.find(
+        e => e.month === monthName && e.day === dayNum,
+      );
+      const movingEntries = getMovableNamedayEntries(dt.getFullYear());
+      const movingEntry = movingEntries.find(
+        e => e.month === monthName && e.day === dayNum,
+      );
+
+      if (!staticEntry && !movingEntry) return undefined as any;
+
+      return {
+        names: [...(staticEntry?.names ?? []), ...(movingEntry?.names ?? [])],
+        celebrations: [
+          ...(staticEntry?.celebrations ?? []),
+          ...(movingEntry?.celebrations ?? []),
+        ],
+      };
     };
+
+    const findWorldDayLocal = (dt: Date) => {
+      const monthName = GREEK_MONTHS[dt.getMonth()];
+      const dayNum = dt.getDate();
+      const dayString = `${dayNum} ${monthName}`;
+      // Search for exact match
+      return (
+        worldDaysJanFeb.find(
+          wd => wd.date === dayString || wd.date.includes(dayString),
+        )?.title ?? null
+      );
+    };
+
     const applyUpdate = () => {
       const now = new Date();
       setDateString(formatDate());
       const entry = findNamedayLocal(now);
       setNamesToday(entry?.names ?? []);
       setCelebrationToday(entry?.celebrations?.[0] ?? null);
+      if (globalDaysEnabled) {
+        setWorldDayToday(findWorldDayLocal(now));
+      } else {
+        setWorldDayToday(null);
+      }
     };
     const scheduleNext = () => {
       const now = new Date();
@@ -77,7 +116,7 @@ function DayScreenContent() {
     applyUpdate();
     scheduleNext();
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [globalDaysEnabled]);
 
   const images = [
     require('../../img/OIP.jpg'),
@@ -92,7 +131,12 @@ function DayScreenContent() {
   const randomImage = images[Math.floor(Math.random() * images.length)];
 
   return (
-    <View style={styles.screenContainer}>
+    <View
+      style={[
+        styles.screenContainer,
+        darkModeEnabled && styles.screenContainerDark,
+      ]}
+    >
       <View style={styles.heroWrap}>
         <Image source={randomImage} style={styles.heroImage} />
         <View style={styles.heroOverlay}>
@@ -104,32 +148,129 @@ function DayScreenContent() {
           </View>
         </View>
       </View>
-      <View style={styles.content}>
-        <View style={styles.celebrationBox}>
+      <View style={[styles.content, darkModeEnabled && styles.contentDark]}>
+        <View
+          style={[
+            styles.celebrationBox,
+            darkModeEnabled && styles.celebrationBoxDark,
+          ]}
+        >
           <Image
             source={require('../../assets/candle.jpg')}
             style={styles.candleIcon}
           />
           <View style={styles.textColumn}>
-            <Text style={styles.label}>Εορτές σήμερα:</Text>
+            <Text style={[styles.label, darkModeEnabled && styles.labelDark]}>
+              Ονόματα σήμερα:
+            </Text>
             {namesToday.length ? (
-              <Text style={styles.namesList}>{namesToday.join(', ')}</Text>
+              <Text
+                style={[
+                  styles.namesList,
+                  darkModeEnabled && styles.namesListDark,
+                ]}
+              >
+                {namesToday.join(', ')}
+              </Text>
             ) : (
-              <Text style={styles.placeholder}>—</Text>
+              <Text
+                style={[
+                  styles.placeholder,
+                  darkModeEnabled && styles.placeholderDark,
+                ]}
+              >
+                —
+              </Text>
             )}
           </View>
         </View>
+        {celebrationToday && (
+          <View
+            style={[
+              styles.celebrationBox,
+              darkModeEnabled && styles.celebrationBoxDark,
+            ]}
+          >
+            <Image
+              source={require('../../assets/candle.jpg')}
+              style={styles.candleIcon}
+            />
+            <View style={styles.textColumn}>
+              <Text style={[styles.label, darkModeEnabled && styles.labelDark]}>
+                Εορτές σήμερα:
+              </Text>
+              <Text
+                style={[
+                  styles.namesList,
+                  darkModeEnabled && styles.namesListDark,
+                ]}
+              >
+                {celebrationToday}
+              </Text>
+            </View>
+          </View>
+        )}
+        {worldDayToday && (
+          <View
+            style={[
+              styles.celebrationBox,
+              darkModeEnabled && styles.celebrationBoxDark,
+            ]}
+          >
+            <Image
+              source={require('../../assets/candle.jpg')}
+              style={styles.candleIcon}
+            />
+            <View style={styles.textColumn}>
+              <Text style={[styles.label, darkModeEnabled && styles.labelDark]}>
+                Παγκόσμιες ημέρες:
+              </Text>
+              <Text
+                style={[
+                  styles.namesList,
+                  darkModeEnabled && styles.namesListDark,
+                ]}
+              >
+                {worldDayToday}
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
 }
 
-function TopBar() {
+type TopBarProps = {
+  onToggleYearPicker: () => void;
+  showYearPicker: boolean;
+  yearOptions: number[];
+  selectedYear: number;
+  onSelectYear: (year: number) => void;
+};
+
+function TopBar({
+  onToggleYearPicker,
+  showYearPicker,
+  yearOptions,
+  selectedYear,
+  onSelectYear,
+}: TopBarProps) {
   const insets = useSafeAreaInsets();
+  const { darkModeEnabled } = useAppContext();
   return (
-    <View style={[styles.topBar, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.topBar,
+        darkModeEnabled && styles.topBarDark,
+        { paddingTop: insets.top },
+      ]}
+    >
       <View style={styles.topLeft}>
-        <TouchableOpacity accessibilityRole="button">
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={onToggleYearPicker}
+        >
           <Ionicons name="calendar-outline" size={30} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -139,6 +280,34 @@ function TopBar() {
           <Ionicons name="search" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
+      {showYearPicker && (
+        <View
+          style={[
+            styles.yearPickerPanel,
+            darkModeEnabled && styles.yearPickerPanelDark,
+          ]}
+        >
+          {yearOptions.map(y => (
+            <TouchableOpacity
+              key={y}
+              onPress={() => onSelectYear(y)}
+              style={[
+                styles.yearOption,
+                y === selectedYear && styles.yearOptionSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.yearOptionText,
+                  darkModeEnabled && styles.yearOptionTextDark,
+                ]}
+              >
+                {y}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -151,9 +320,25 @@ const colors = {
 };
 
 export default function MainScreen() {
+  const { darkModeEnabled, selectedYear, setSelectedYear } = useAppContext();
   const [currentScreen, setCurrentScreen] = useState<
     'day' | 'month' | 'week' | 'close' | 'settings'
   >('day');
+  const [showYearPicker, setShowYearPicker] = useState(false);
+
+  const yearOptions = useMemo(() => {
+    const baseYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, i) => baseYear + i);
+  }, []);
+
+  const handleSelectYear = (year: number) => {
+    setSelectedYear(year);
+    setShowYearPicker(false);
+  };
+
+  useEffect(() => {
+    setShowYearPicker(false);
+  }, [currentScreen]);
 
   const renderCurrent = () => {
     switch (currentScreen) {
@@ -175,11 +360,34 @@ export default function MainScreen() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={styles.container}>
-          <TopBar />
-          <View style={styles.contentArea}>{renderCurrent()}</View>
+        <View
+          style={[styles.container, darkModeEnabled && styles.containerDark]}
+        >
+          <TopBar
+            onToggleYearPicker={() => setShowYearPicker(prev => !prev)}
+            showYearPicker={showYearPicker}
+            yearOptions={yearOptions}
+            selectedYear={selectedYear}
+            onSelectYear={handleSelectYear}
+          />
           <View
-            style={[styles.bottomNav, { backgroundColor: colors.bgSecondary }]}
+            style={[
+              styles.contentArea,
+              darkModeEnabled && styles.contentAreaDark,
+            ]}
+          >
+            {renderCurrent()}
+          </View>
+          <View
+            style={[
+              styles.bottomNav,
+              darkModeEnabled && styles.bottomNavDark,
+              {
+                backgroundColor: darkModeEnabled
+                  ? '#111827'
+                  : colors.bgSecondary,
+              },
+            ]}
           >
             {[
               ['Ημέρα', 'home-outline', 'day'],
@@ -221,8 +429,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  containerDark: {
+    backgroundColor: '#111827',
+  },
   contentArea: {
     flex: 1,
+  },
+  contentAreaDark: {
+    backgroundColor: '#111827',
   },
   topBar: {
     backgroundColor: colors.primary,
@@ -231,6 +445,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingBottom: 10,
+    position: 'relative',
+  },
+  topBarDark: {
+    backgroundColor: '#1E3A8A',
   },
   topLeft: {
     width: 56,
@@ -245,6 +463,43 @@ const styles = StyleSheet.create({
   iconButton: {
     marginLeft: 14,
   },
+  yearPickerPanel: {
+    position: 'absolute',
+    top: '100%',
+    left: 8,
+    backgroundColor: '#fff',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    marginTop: 6,
+    width: 140,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    zIndex: 20,
+  },
+  yearPickerPanelDark: {
+    backgroundColor: '#1F2937',
+  },
+  yearOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  yearOptionSelected: {
+    backgroundColor: '#E0ECFF',
+  },
+  yearOptionText: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  yearOptionTextDark: {
+    color: '#E5E7EB',
+  },
   topTitle: {
     color: '#fff',
     fontSize: 18,
@@ -257,6 +512,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     justifyContent: 'flex-start',
     position: 'relative',
+  },
+  screenContainerDark: {
+    backgroundColor: '#111827',
   },
   heroWrap: {
     width: '100%',
@@ -302,6 +560,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
   },
+  namesListDark: {
+    color: '#E5E7EB',
+  },
   heroDate: {
     color: '#fff',
     fontSize: 14,
@@ -326,14 +587,19 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     marginTop: 0,
   },
+  contentDark: {
+    backgroundColor: '#111827',
+  },
   celebrationBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#F9FAFB',
     padding: 14,
-    borderRadius: 12, // ✅ όλες οι γωνίες ίδιες
+    borderRadius: 12,
   },
-
+  celebrationBoxDark: {
+    backgroundColor: '#1F2937',
+  },
   textColumn: {
     flex: 1,
   },
@@ -349,10 +615,16 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 6,
   },
+  labelDark: {
+    color: '#F3F4F6',
+  },
   placeholder: {
     fontSize: 14,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  placeholderDark: {
+    color: '#6B7280',
   },
   settingsButton: {
     backgroundColor: 'transparent',
@@ -377,6 +649,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+  },
+  bottomNavDark: {
+    borderTopColor: '#374151',
   },
   navButton: {
     alignItems: 'center',
