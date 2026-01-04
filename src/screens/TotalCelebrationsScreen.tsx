@@ -4,13 +4,16 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Linking,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Datanames } from '../../data/datanames';
 import { getMovableNamedayEntries } from '../../data/movingCelebrations';
 import { worldDaysJanFeb } from '../../data/worldday';
 import { useAppContext } from '../AppContext';
+import { useContacts } from '../ContactsContext';
 
 const GREEK_MONTHS = [
   'Ιανουάριος',
@@ -52,151 +55,243 @@ const GREEK_WEEKDAYS = [
   'Σάββατο',
 ];
 
-const DayItem = ({
-  day,
-  celebrations,
-  names,
-  worldDays,
-  isToday,
-  year,
-  monthIndex,
-  monthNameGenitive,
-  darkMode,
-}: {
-  day: number;
-  celebrations: string[];
-  names: string[];
-  worldDays: string[];
-  isToday: boolean;
-  year: number;
-  monthIndex: number;
-  monthNameGenitive: string;
-  darkMode?: boolean;
-}) => {
-  const [expanded, setExpanded] = useState(false);
-  const date = new Date(year, monthIndex, day);
-  const weekdayName = GREEK_WEEKDAYS[date.getDay()];
-  const dayFormatted = String(day).padStart(2, '0');
+const DayItem = React.memo(
+  ({
+    day,
+    celebrations,
+    names,
+    worldDays,
+    isToday,
+    year,
+    monthIndex,
+    monthNameGenitive,
+    darkMode,
+    effectiveTextColor,
+    backgroundColor,
+    getContactsForNameday,
+    hasPermission,
+  }: {
+    day: number;
+    celebrations: string[];
+    names: string[];
+    worldDays: string[];
+    isToday: boolean;
+    year: number;
+    monthIndex: number;
+    monthNameGenitive: string;
+    darkMode?: boolean;
+    effectiveTextColor?: string;
+    backgroundColor?: string;
+    getContactsForNameday: (names: string[]) => any[];
+    hasPermission: boolean;
+  }) => {
+    const [expanded, setExpanded] = useState(false);
 
-  return (
-    <TouchableOpacity
-      onPress={() => setExpanded(!expanded)}
-      style={[
-        styles.dayContainer,
-        isToday && styles.todayContainer,
-        darkMode && styles.dayContainerDark,
-      ]}
-    >
-      <View style={styles.dayHeader}>
-        <Text
-          style={[
-            styles.dayNumber,
-            isToday && styles.todayNumber,
-            darkMode && styles.dayNumberDark,
-          ]}
-        >
-          {weekdayName} {dayFormatted} {monthNameGenitive}
-        </Text>
-        {(names.length > 0 ||
-          celebrations.length > 0 ||
-          worldDays.length > 0) && (
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={isToday ? '#0369A1' : darkMode ? '#60A5FA' : '#1E6AC7'}
-          />
-        )}
-      </View>
-      {expanded && (
-        <View
-          style={[
-            styles.expandedContent,
-            darkMode && styles.expandedContentDark,
-          ]}
-        >
-          {names.length > 0 && (
-            <View style={styles.namesSection}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  darkMode && styles.sectionTitleDark,
-                ]}
-              >
-                Ονόματα:
-              </Text>
-              <Text
-                style={[styles.namesText, darkMode && styles.namesTextDark]}
-              >
-                {names.join(', ')}
-              </Text>
-            </View>
+    // Lazy load contacts only when expanded
+    const contacts =
+      expanded && hasPermission && names.length > 0
+        ? getContactsForNameday(names)
+        : [];
+    const date = new Date(year, monthIndex, day);
+    const weekdayName = GREEK_WEEKDAYS[date.getDay()];
+    const dayFormatted = String(day).padStart(2, '0');
+
+    return (
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        style={[
+          styles.dayContainer,
+          isToday && styles.todayContainer,
+          { backgroundColor: darkMode ? '#1F2937' : backgroundColor },
+        ]}
+      >
+        <View style={styles.dayHeader}>
+          <Text
+            style={[
+              styles.dayNumber,
+              isToday && styles.todayNumber,
+              darkMode && styles.dayNumberDark,
+              { color: effectiveTextColor },
+            ]}
+          >
+            {weekdayName} {dayFormatted} {monthNameGenitive}
+          </Text>
+          {(names.length > 0 ||
+            celebrations.length > 0 ||
+            worldDays.length > 0) && (
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={isToday ? '#0369A1' : darkMode ? '#60A5FA' : '#1E6AC7'}
+            />
           )}
-          {celebrations.length > 0 && (
-            <View style={styles.celebrationsSection}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  darkMode && styles.sectionTitleDark,
-                ]}
-              >
-                Εορτές:
-              </Text>
-              {celebrations.map((celebration, idx) => (
-                <Text
-                  key={idx}
-                  style={[
-                    styles.celebrationText,
-                    darkMode && styles.celebrationTextDark,
-                  ]}
-                >
-                  • {celebration}
-                </Text>
-              ))}
-            </View>
-          )}
-          {worldDays.length > 0 && (
-            <View style={styles.celebrationsSection}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  darkMode && styles.sectionTitleDark,
-                ]}
-              >
-                Παγκόσμιες ημέρες:
-              </Text>
-              {worldDays.map((worldDay, idx) => (
-                <Text
-                  key={idx}
-                  style={[
-                    styles.celebrationText,
-                    darkMode && styles.celebrationTextDark,
-                  ]}
-                >
-                  • {worldDay}
-                </Text>
-              ))}
-            </View>
-          )}
-          {names.length === 0 &&
-            celebrations.length === 0 &&
-            worldDays.length === 0 && (
-              <Text
-                style={[
-                  styles.noCelebrationsText,
-                  darkMode && styles.noCelebrationsTextDark,
-                ]}
-              >
-                Δεν υπάρχουν γιορτές
-              </Text>
-            )}
         </View>
-      )}
-    </TouchableOpacity>
-  );
-};
+        {expanded && (
+          <View
+            style={[
+              styles.expandedContent,
+              darkMode && styles.expandedContentDark,
+            ]}
+          >
+            {names.length > 0 && (
+              <View style={styles.namesSection}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    darkMode && styles.sectionTitleDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  Ονόματα:
+                </Text>
+                <Text
+                  style={[
+                    styles.namesText,
+                    darkMode && styles.namesTextDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  {names.join(', ')}
+                </Text>
+              </View>
+            )}
+            {celebrations.length > 0 && (
+              <View style={styles.celebrationsSection}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    darkMode && styles.sectionTitleDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  Εορτές:
+                </Text>
+                {celebrations.map((celebration, idx) => (
+                  <Text
+                    key={idx}
+                    style={[
+                      styles.celebrationText,
+                      darkMode && styles.celebrationTextDark,
+                      { color: effectiveTextColor },
+                    ]}
+                  >
+                    • {celebration}
+                  </Text>
+                ))}
+              </View>
+            )}
+            {worldDays.length > 0 && (
+              <View style={styles.celebrationsSection}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    darkMode && styles.sectionTitleDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  Παγκόσμιες ημέρες:
+                </Text>
+                {worldDays.map((worldDay, idx) => (
+                  <Text
+                    key={idx}
+                    style={[
+                      styles.celebrationText,
+                      darkMode && styles.celebrationTextDark,
+                      { color: effectiveTextColor },
+                    ]}
+                  >
+                    • {worldDay}
+                  </Text>
+                ))}
+              </View>
+            )}
+            {contacts && contacts.length > 0 && (
+              <View style={styles.celebrationsSection}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    darkMode && styles.sectionTitleDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  Επαφές που γιορτάζουν:
+                </Text>
+                <View style={styles.contactsRow}>
+                  {contacts.map((contact, index) => (
+                    <TouchableOpacity
+                      key={contact.recordID}
+                      onPress={() => {
+                        if (
+                          !contact.phoneNumbers ||
+                          contact.phoneNumbers.length === 0
+                        ) {
+                          Alert.alert(
+                            'Πρόβλημα',
+                            'Η επαφή δεν έχει αποθηκευμένο τηλέφωνο',
+                          );
+                          return;
+                        }
+                        const phoneNumber = contact.phoneNumbers[0].number;
+                        Alert.alert(contact.displayName, 'Επιλέξτε ενέργεια:', [
+                          {
+                            text: '📞 Κλήση',
+                            onPress: () =>
+                              Linking.openURL(`tel:${phoneNumber}`),
+                          },
+                          {
+                            text: '✉️ SMS',
+                            onPress: () =>
+                              Linking.openURL(`sms:${phoneNumber}`),
+                          },
+                          { text: 'Ακύρωση', style: 'cancel' },
+                        ]);
+                      }}
+                      style={styles.contactNameButton}
+                    >
+                      <Text
+                        style={[
+                          styles.contactNameClickable,
+                          darkMode && styles.namesTextDark,
+                          { color: effectiveTextColor },
+                        ]}
+                      >
+                        {contact.displayName}
+                        {index < contacts.length - 1 ? ', ' : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+            {names.length === 0 &&
+              celebrations.length === 0 &&
+              worldDays.length === 0 && (
+                <Text
+                  style={[
+                    styles.noCelebrationsText,
+                    darkMode && styles.noCelebrationsTextDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  Δεν υπάρχουν γιορτές
+                </Text>
+              )}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  },
+);
 
 export const TotalCelebrationsScreen = () => {
-  const { globalDaysEnabled, darkModeEnabled, selectedYear } = useAppContext();
+  const {
+    globalDaysEnabled,
+    darkModeEnabled,
+    selectedYear,
+    backgroundColor,
+    effectiveTextColor,
+  } = useAppContext();
+  const { hasPermission, getContactsForNameday } = useContacts();
   const now = new Date();
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
@@ -251,17 +346,21 @@ export const TotalCelebrationsScreen = () => {
     displayMonthIndex === now.getMonth() && displayYear === now.getFullYear();
   const today = now.getDate();
 
-  // Create list of days
+  // Create list of days (contacts loaded on-demand when expanded)
   const daysData = Array.from({ length: lastDay }, (_, i) => {
     const dayNum = i + 1;
     const dayEntry = Datanames.find(
       entry => entry.month === monthName && entry.day === dayNum,
     );
     const movingEntry = movingEntries.find(e => e.day === dayNum);
+    const allNames = [
+      ...(dayEntry?.names || []),
+      ...(movingEntry?.names || []),
+    ];
     return {
       day: dayNum,
       celebrations: celebrationsByDay[dayNum] || [],
-      names: [...(dayEntry?.names || []), ...(movingEntry?.names || [])],
+      names: allNames,
       worldDays: findWorldDaysForDay(dayNum, monthName),
       isToday: isCurrentMonth && dayNum === today,
     };
@@ -282,7 +381,12 @@ export const TotalCelebrationsScreen = () => {
   };
 
   return (
-    <View style={[styles.container, darkModeEnabled && styles.containerDark]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: darkModeEnabled ? '#111827' : backgroundColor },
+      ]}
+    >
       <View style={[styles.header, darkModeEnabled && styles.headerDark]}>
         <TouchableOpacity onPress={handlePrevMonth} style={styles.navButton}>
           <Ionicons
@@ -292,16 +396,30 @@ export const TotalCelebrationsScreen = () => {
           />
         </TouchableOpacity>
         <View style={styles.titleContainer}>
-          <Text style={[styles.title, darkModeEnabled && styles.titleDark]}>
+          <Text
+            style={[
+              styles.title,
+              darkModeEnabled && styles.titleDark,
+              { color: effectiveTextColor },
+            ]}
+          >
             Οι εορτές του μήνα
           </Text>
           <Text
-            style={[styles.subtitle, darkModeEnabled && styles.subtitleDark]}
+            style={[
+              styles.subtitle,
+              darkModeEnabled && styles.subtitleDark,
+              { color: effectiveTextColor },
+            ]}
           >
             {monthName}
           </Text>
           <Text
-            style={[styles.yearText, darkModeEnabled && styles.yearTextDark]}
+            style={[
+              styles.yearText,
+              darkModeEnabled && styles.yearTextDark,
+              { color: effectiveTextColor },
+            ]}
           >
             {selectedYear}
           </Text>
@@ -327,10 +445,19 @@ export const TotalCelebrationsScreen = () => {
             monthIndex={displayMonthIndex}
             monthNameGenitive={GREEK_MONTHS_GENITIVE[displayMonthIndex]}
             darkMode={darkModeEnabled}
+            effectiveTextColor={effectiveTextColor}
+            backgroundColor={backgroundColor}
+            getContactsForNameday={getContactsForNameday}
+            hasPermission={hasPermission}
           />
         )}
         keyExtractor={item => String(item.day)}
         scrollEnabled={true}
+        initialNumToRender={7}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        removeClippedSubviews={true}
+        updateCellsBatchingPeriod={50}
       />
     </View>
   );
@@ -425,6 +552,33 @@ const styles = StyleSheet.create({
   celebrationsSection: {
     marginBottom: 8,
   },
+  contactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    marginRight: 5,
+    marginBottom: 4,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    marginLeft: 4,
+    gap: 3,
+  },
+  actionButton: {
+    padding: 1,
+  },
+  contactName: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
@@ -433,6 +587,20 @@ const styles = StyleSheet.create({
   },
   sectionTitleDark: {
     color: '#60A5FA',
+  },
+  contactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  contactNameButton: {
+    marginRight: 4,
+  },
+  contactNameClickable: {
+    fontSize: 12,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+    color: '#1E6AC7',
   },
   namesText: {
     fontSize: 13,

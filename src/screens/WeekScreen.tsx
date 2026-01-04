@@ -1,8 +1,17 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useState, useEffect } from 'react';
 import { Datanames } from '../../data/datanames';
 import { worldDaysJanFeb } from '../../data/worldday';
 import { useAppContext } from '../AppContext';
+import { useContacts } from '../ContactsContext';
 
 const GREEK_MONTHS = [
   'Ιανουάριος',
@@ -53,14 +62,23 @@ interface DayInfo {
   celebrations: string[];
   worldDays: string[];
   isToday: boolean;
+  contacts: any[];
 }
 
-const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
+const DayCard = ({
+  item,
+  darkMode,
+  effectiveTextColor,
+}: {
+  item: DayInfo;
+  darkMode?: boolean;
+  effectiveTextColor?: string;
+}) => (
   <View
     style={[
       styles.dayCard,
+      darkMode && !item.isToday && styles.dayCardDark,
       item.isToday && styles.dayCardToday,
-      darkMode && styles.dayCardDark,
     ]}
   >
     <View style={styles.dayHeader}>
@@ -68,7 +86,7 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
         style={[
           styles.dayName,
           item.isToday && styles.dayNameToday,
-          darkMode && styles.dayNameDark,
+          { color: effectiveTextColor },
         ]}
       >
         {item.weekday}
@@ -77,7 +95,7 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
         style={[
           styles.dayDate,
           item.isToday && styles.dayDateToday,
-          darkMode && styles.dayDateDark,
+          { color: effectiveTextColor },
         ]}
       >
         {item.date}
@@ -87,11 +105,21 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
     {item.names.length > 0 && (
       <View style={styles.section}>
         <Text
-          style={[styles.sectionTitle, darkMode && styles.sectionTitleDark]}
+          style={[
+            styles.sectionTitle,
+            darkMode && styles.sectionTitleDark,
+            { color: effectiveTextColor },
+          ]}
         >
           Ονόματα:
         </Text>
-        <Text style={[styles.namesText, darkMode && styles.namesTextDark]}>
+        <Text
+          style={[
+            styles.namesText,
+            darkMode && styles.namesTextDark,
+            { color: effectiveTextColor },
+          ]}
+        >
           {item.names.join(', ')}
         </Text>
       </View>
@@ -100,7 +128,11 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
     {item.celebrations.length > 0 && (
       <View style={styles.section}>
         <Text
-          style={[styles.sectionTitle, darkMode && styles.sectionTitleDark]}
+          style={[
+            styles.sectionTitle,
+            darkMode && styles.sectionTitleDark,
+            { color: effectiveTextColor },
+          ]}
         >
           Εορτές:
         </Text>
@@ -110,6 +142,7 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
             style={[
               styles.celebrationText,
               darkMode && styles.celebrationTextDark,
+              { color: effectiveTextColor },
             ]}
           >
             • {celebration}
@@ -121,7 +154,11 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
     {item.worldDays.length > 0 && (
       <View style={styles.section}>
         <Text
-          style={[styles.sectionTitle, darkMode && styles.sectionTitleDark]}
+          style={[
+            styles.sectionTitle,
+            darkMode && styles.sectionTitleDark,
+            { color: effectiveTextColor },
+          ]}
         >
           Παγκόσμιες ημέρες:
         </Text>
@@ -131,11 +168,61 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
             style={[
               styles.celebrationText,
               darkMode && styles.celebrationTextDark,
+              { color: effectiveTextColor },
             ]}
           >
             • {day}
           </Text>
         ))}
+      </View>
+    )}
+
+    {item.contacts && item.contacts.length > 0 && (
+      <View style={styles.section}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            darkMode && styles.sectionTitleDark,
+            { color: effectiveTextColor },
+          ]}
+        >
+          Επαφές που γιορτάζουν:
+        </Text>
+        <View style={styles.contactsRow}>
+          {item.contacts.map((contact, index) => (
+            <View key={contact.recordID} style={styles.contactItem}>
+              <Text
+                style={[
+                  styles.contactName,
+                  darkMode && styles.namesTextDark,
+                  { color: effectiveTextColor },
+                ]}
+              >
+                {contact.displayName}
+              </Text>
+              {contact.phoneNumbers && contact.phoneNumbers.length > 0 && (
+                <View style={styles.contactActions}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      Linking.openURL(`tel:${contact.phoneNumbers[0].number}`)
+                    }
+                    style={styles.actionButton}
+                  >
+                    <Ionicons name="call" size={14} color="#10B981" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() =>
+                      Linking.openURL(`sms:${contact.phoneNumbers[0].number}`)
+                    }
+                    style={styles.actionButton}
+                  >
+                    <Ionicons name="mail" size={14} color="#3B82F6" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
       </View>
     )}
 
@@ -148,11 +235,20 @@ const DayCard = ({ item, darkMode }: { item: DayInfo; darkMode?: boolean }) => (
 );
 
 export const WeekScreen = () => {
-  const { globalDaysEnabled, darkModeEnabled } = useAppContext();
+  const {
+    globalDaysEnabled,
+    darkModeEnabled,
+    backgroundColor,
+    effectiveTextColor,
+  } = useAppContext();
+  const { hasPermission, getContactsForNameday } = useContacts();
   const [weekData, setWeekData] = useState<DayInfo[]>([]);
 
   useEffect(() => {
     const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const todayDay = today.getDate();
     const weekDays: DayInfo[] = [];
 
     const findWorldDaysForDate = (dt: Date): string[] => {
@@ -178,27 +274,43 @@ export const WeekScreen = () => {
       );
 
       const worldDays = globalDaysEnabled ? findWorldDaysForDate(date) : [];
+      const names = entry?.names ?? [];
+      const contactsCelebrating =
+        hasPermission && names.length > 0 ? getContactsForNameday(names) : [];
 
       weekDays.push({
         weekday,
         date: `${String(dayNum).padStart(2, '0')} ${monthGenitive}`,
         day: dayNum,
         month: monthName,
-        names: entry?.names ?? [],
+        names,
         celebrations: entry?.celebrations ?? [],
         worldDays,
-        isToday: i === 0,
+        contacts: contactsCelebrating,
+        isToday:
+          date.getFullYear() === todayYear &&
+          date.getMonth() === todayMonth &&
+          date.getDate() === todayDay,
       });
     }
 
     setWeekData(weekDays);
-  }, [globalDaysEnabled]);
+  }, [globalDaysEnabled, hasPermission, getContactsForNameday]);
 
   return (
     <ScrollView
-      style={[styles.container, darkModeEnabled && styles.containerDark]}
+      style={[
+        styles.container,
+        { backgroundColor: darkModeEnabled ? '#111827' : backgroundColor },
+      ]}
     >
-      <Text style={[styles.title, darkModeEnabled && styles.titleDark]}>
+      <Text
+        style={[
+          styles.title,
+          darkModeEnabled && styles.titleDark,
+          { color: effectiveTextColor },
+        ]}
+      >
         Εβδομάδα
       </Text>
       <Text style={[styles.subtitle, darkModeEnabled && styles.subtitleDark]}>
@@ -206,7 +318,12 @@ export const WeekScreen = () => {
       </Text>
       <View style={styles.weekContent}>
         {weekData.map((day, index) => (
-          <DayCard key={index} item={day} darkMode={darkModeEnabled} />
+          <DayCard
+            key={index}
+            item={day}
+            darkMode={darkModeEnabled}
+            effectiveTextColor={effectiveTextColor}
+          />
         ))}
       </View>
     </ScrollView>
@@ -287,6 +404,33 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 10,
+  },
+  contactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 5,
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    marginLeft: 4,
+    gap: 3,
+  },
+  actionButton: {
+    padding: 2,
+  },
+  contactName: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 12,

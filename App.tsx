@@ -14,12 +14,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { AppProvider, useAppContext } from './src/AppContext';
+import { ContactsProvider } from './src/ContactsContext';
 import MainScreen from './src/screens/MainScreen';
 import SplashLoading from './src/SplashLoading';
 import { useState, useEffect } from 'react';
 
 function AppContent() {
-  const { isLoading } = useAppContext();
+  const { isLoading, backgroundColor, textColor } = useAppContext();
   const isDarkMode = useColorScheme() === 'dark';
   const [showApp, setShowApp] = useState(!isLoading);
 
@@ -37,14 +38,18 @@ function AppContent() {
         return () => clearTimeout(timer);
       }, [onComplete]);
       return (
-        <View style={stylesSplash.container}>
-          <Text style={stylesSplash.title}>Εορτολόγιο</Text>
+        <View style={[stylesSplash.container, { backgroundColor }]}>
+          <Text style={[stylesSplash.title, { color: textColor }]}>
+            Εορτολόγιο
+          </Text>
           <ActivityIndicator
             size="large"
-            color="#1E6AC7"
+            color={textColor}
             style={stylesSplash.spinner}
           />
-          <Text style={stylesSplash.subtitle}>Φόρτωση...</Text>
+          <Text style={[stylesSplash.subtitle, { color: textColor }]}>
+            Φόρτωση...
+          </Text>
         </View>
       );
     };
@@ -65,7 +70,9 @@ function AppContent() {
 function App() {
   return (
     <AppProvider>
-      <AppContent />
+      <ContactsProvider>
+        <AppContent />
+      </ContactsProvider>
     </AppProvider>
   );
 }

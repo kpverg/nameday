@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Switch,
 } from 'react-native';
 import { useState } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../AppContext';
+import { useContacts } from '../ContactsContext';
 
 interface SettingItemProps {
   icon: string;
@@ -85,6 +87,7 @@ export const SettingsScreen = () => {
   const [reminders, setReminders] = useState(true);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const {
     globalDaysEnabled,
     setGlobalDaysEnabled,
@@ -94,23 +97,48 @@ export const SettingsScreen = () => {
     setBackgroundTone,
     textTone,
     setTextTone,
+    backgroundColor,
+    textColor,
   } = useAppContext();
+  const { hasPermission, requestPermission, refreshContacts } = useContacts();
 
+  const handleRefreshContacts = async () => {
+    setRefreshing(true);
+    try {
+      await refreshContacts();
+      // Could show a toast here
+    } catch (error) {
+      console.error('Error refreshing contacts:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Ανοιχτές αποχρώσεις για background
   const backgroundOptions = [
-    { key: 'neutral', label: 'Ουδέτερο φόντο' },
-    { key: 'light', label: 'Απαλό / ανοιχτό φόντο' },
-  ] as const;
+    { key: 'white', label: 'Λευκό', color: '#FFFFFF' },
+    { key: 'cream', label: 'Κρεμ', color: '#FFF8E1' },
+    { key: 'lightBlue', label: 'Απαλό μπλε', color: '#E3F2FD' },
+    { key: 'mint', label: 'Απαλό πράσινο', color: '#E6FFF7' },
+    { key: 'neutral', label: 'Ουδέτερο φόντο', color: '#F3F4F6' },
+    { key: 'light', label: 'Απαλό γκρι', color: '#F9FAFB' },
+  ];
 
+  // Σκούρες αποχρώσεις για γραμματοσειρά
   const textOptions = [
-    { key: 'normal', label: 'Κανονικό κείμενο' },
-    { key: 'dark', label: 'Σκούρα, έντονη γραμματοσειρά' },
-  ] as const;
+    { key: 'black', label: 'Μαύρο', color: '#111827' },
+    { key: 'navy', label: 'Σκούρο μπλε', color: '#1E293B' },
+    { key: 'darkGreen', label: 'Σκούρο πράσινο', color: '#14532D' },
+    { key: 'burgundy', label: 'Μπορντό', color: '#581C1C' },
+    { key: 'dark', label: 'Σκούρα, έντονη γραμματοσειρά', color: '#22223B' },
+    { key: 'normal', label: 'Κανονικό κείμενο', color: '#374151' },
+  ];
 
   const renderOptionSheet = (
     visible: boolean,
     onClose: () => void,
     title: string,
-    options: { key: string; label: string }[],
+    options: { key: string; label: string; color: string }[],
     selected: string,
     onSelect: (key: string) => void,
   ) => (
@@ -142,22 +170,36 @@ export const SettingsScreen = () => {
                   onClose();
                 }}
               >
-                <Text
-                  style={[
-                    styles.sheetOptionText,
-                    darkModeEnabled && styles.sheetOptionTextDark,
-                    isSelected && styles.sheetOptionTextSelected,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-                {isSelected && (
-                  <Ionicons
-                    name="checkmark"
-                    size={18}
-                    color={darkModeEnabled ? '#BFDBFE' : '#1E6AC7'}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      backgroundColor: opt.color,
+                      marginRight: 12,
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                    }}
                   />
-                )}
+                  <Text
+                    style={[
+                      styles.sheetOptionText,
+                      darkModeEnabled && styles.sheetOptionTextDark,
+                      isSelected && styles.sheetOptionTextSelected,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons
+                      name="checkmark"
+                      size={18}
+                      color={darkModeEnabled ? '#BFDBFE' : '#1E6AC7'}
+                      style={{ marginLeft: 8 }}
+                    />
+                  )}
+                </View>
               </Pressable>
             );
           })}
@@ -168,7 +210,10 @@ export const SettingsScreen = () => {
 
   return (
     <ScrollView
-      style={[styles.container, darkModeEnabled && styles.containerDark]}
+      style={[
+        styles.container,
+        { backgroundColor: darkModeEnabled ? '#1F2937' : backgroundColor },
+      ]}
     >
       <Text style={[styles.title, darkModeEnabled && styles.titleDark]}>
         Ρυθμίσεις
@@ -224,9 +269,8 @@ export const SettingsScreen = () => {
           icon="color-palette"
           title="Αποχρώσεις φόντου"
           subtitle={
-            backgroundTone === 'light'
-              ? 'Απαλό / ανοιχτό φόντο'
-              : 'Ουδέτερο φόντο'
+            backgroundOptions.find(opt => opt.key === backgroundTone)?.label ||
+            ''
           }
           onPress={() => setShowBackgroundPicker(true)}
           darkMode={darkModeEnabled}
@@ -234,11 +278,7 @@ export const SettingsScreen = () => {
         <SettingItem
           icon="contrast"
           title="Αποχρώσεις κειμένου"
-          subtitle={
-            textTone === 'dark'
-              ? 'Σκούρα, έντονη γραμματοσειρά'
-              : 'Κανονικό κείμενο'
-          }
+          subtitle={textOptions.find(opt => opt.key === textTone)?.label || ''}
           onPress={() => setShowTextPicker(true)}
           darkMode={darkModeEnabled}
         />
@@ -256,6 +296,24 @@ export const SettingsScreen = () => {
           onPress={() => console.log('Change language')}
           darkMode={darkModeEnabled}
         />
+        <SettingItem
+          icon="people"
+          title="Πρόσβαση στις επαφές"
+          subtitle={hasPermission ? 'Ενεργοποιημένη' : 'Απενεργοποιημένη'}
+          onPress={hasPermission ? undefined : requestPermission}
+          darkMode={darkModeEnabled}
+        />
+        {hasPermission && (
+          <SettingItem
+            icon={refreshing ? 'hourglass' : 'refresh'}
+            title="Ανανέωση επαφών"
+            subtitle={
+              refreshing ? 'Ανανέωση...' : 'Δείτε τις τελευταίες επαφές'
+            }
+            onPress={handleRefreshContacts}
+            darkMode={darkModeEnabled}
+          />
+        )}
       </View>
 
       <View style={[styles.section, darkModeEnabled && styles.sectionDark]}>

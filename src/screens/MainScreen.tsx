@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Button,
+  Linking,
+  Alert,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useState, useEffect, useMemo } from 'react';
@@ -6,6 +15,7 @@ import { Datanames } from '../../data/datanames';
 import { getMovableNamedayEntries } from '../../data/movingCelebrations';
 import { worldDaysJanFeb } from '../../data/worldday';
 import { useAppContext } from '../AppContext';
+import { useContacts } from '../ContactsContext';
 
 const GREEK_MONTHS = [
   'Ιανουάριος',
@@ -33,7 +43,14 @@ import { AddSchemaScreen } from './AddSchemaScreen';
 import { SettingsScreen } from './SettingsScreen';
 
 function DayScreenContent() {
-  const { globalDaysEnabled, darkModeEnabled } = useAppContext();
+  const {
+    globalDaysEnabled,
+    darkModeEnabled,
+    backgroundColor,
+    effectiveTextColor,
+  } = useAppContext();
+  const { hasPermission, requestPermission, getContactsForNameday } =
+    useContacts();
   const formatDate = () =>
     new Date().toLocaleDateString('el-GR', {
       weekday: 'long',
@@ -46,6 +63,7 @@ function DayScreenContent() {
   const [namesToday, setNamesToday] = useState<string[]>([]);
   const [celebrationToday, setCelebrationToday] = useState<string | null>(null);
   const [worldDayToday, setWorldDayToday] = useState<string | null>(null);
+  const [contactsCelebrating, setContactsCelebrating] = useState<any[]>([]);
 
   useEffect(() => {
     let timeoutId: any;
@@ -87,12 +105,20 @@ function DayScreenContent() {
       const now = new Date();
       setDateString(formatDate());
       const entry = findNamedayLocal(now);
-      setNamesToday(entry?.names ?? []);
+      const names = entry?.names ?? [];
+      setNamesToday(names);
       setCelebrationToday(entry?.celebrations?.[0] ?? null);
       if (globalDaysEnabled) {
         setWorldDayToday(findWorldDayLocal(now));
       } else {
         setWorldDayToday(null);
+      }
+      // Get contacts celebrating today
+      if (hasPermission && names.length > 0) {
+        const contacts = getContactsForNameday(names);
+        setContactsCelebrating(contacts);
+      } else {
+        setContactsCelebrating([]);
       }
     };
     const scheduleNext = () => {
@@ -116,7 +142,7 @@ function DayScreenContent() {
     applyUpdate();
     scheduleNext();
     return () => clearTimeout(timeoutId);
-  }, [globalDaysEnabled]);
+  }, [globalDaysEnabled, hasPermission, getContactsForNameday]);
 
   const images = [
     require('../../img/OIP.jpg'),
@@ -134,21 +160,32 @@ function DayScreenContent() {
     <View
       style={[
         styles.screenContainer,
-        darkModeEnabled && styles.screenContainerDark,
+        { backgroundColor: darkModeEnabled ? '#111827' : backgroundColor },
       ]}
     >
       <View style={styles.heroWrap}>
         <Image source={randomImage} style={styles.heroImage} />
         <View style={styles.heroOverlay}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroDate}>{dateString}</Text>
+            <Text style={[styles.heroDate, { color: effectiveTextColor }]}>
+              {dateString}
+            </Text>
             {celebrationToday ? (
-              <Text style={styles.heroCelebration}>{celebrationToday}</Text>
+              <Text
+                style={[styles.heroCelebration, { color: effectiveTextColor }]}
+              >
+                {celebrationToday}
+              </Text>
             ) : null}
           </View>
         </View>
       </View>
-      <View style={[styles.content, darkModeEnabled && styles.contentDark]}>
+      <View
+        style={[
+          styles.content,
+          { backgroundColor: darkModeEnabled ? '#1F2937' : backgroundColor },
+        ]}
+      >
         <View
           style={[
             styles.celebrationBox,
@@ -160,7 +197,13 @@ function DayScreenContent() {
             style={styles.candleIcon}
           />
           <View style={styles.textColumn}>
-            <Text style={[styles.label, darkModeEnabled && styles.labelDark]}>
+            <Text
+              style={[
+                styles.label,
+                darkModeEnabled && styles.labelDark,
+                { color: effectiveTextColor },
+              ]}
+            >
               Ονόματα σήμερα:
             </Text>
             {namesToday.length ? (
@@ -168,6 +211,7 @@ function DayScreenContent() {
                 style={[
                   styles.namesList,
                   darkModeEnabled && styles.namesListDark,
+                  { color: effectiveTextColor },
                 ]}
               >
                 {namesToday.join(', ')}
@@ -196,16 +240,23 @@ function DayScreenContent() {
               style={styles.candleIcon}
             />
             <View style={styles.textColumn}>
-              <Text style={[styles.label, darkModeEnabled && styles.labelDark]}>
-                Εορτές σήμερα:
-              </Text>
               <Text
                 style={[
-                  styles.namesList,
-                  darkModeEnabled && styles.namesListDark,
+                  styles.label,
+                  darkModeEnabled && styles.labelDark,
+                  { color: effectiveTextColor },
                 ]}
               >
-                {celebrationToday}
+                Εορτές σήμερα:
+                <Text
+                  style={[
+                    styles.namesList,
+                    darkModeEnabled && styles.namesListDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  {celebrationToday}
+                </Text>
               </Text>
             </View>
           </View>
@@ -222,17 +273,113 @@ function DayScreenContent() {
               style={styles.candleIcon}
             />
             <View style={styles.textColumn}>
-              <Text style={[styles.label, darkModeEnabled && styles.labelDark]}>
-                Παγκόσμιες ημέρες:
-              </Text>
               <Text
                 style={[
-                  styles.namesList,
-                  darkModeEnabled && styles.namesListDark,
+                  styles.label,
+                  darkModeEnabled && styles.labelDark,
+                  { color: effectiveTextColor },
                 ]}
               >
-                {worldDayToday}
+                Παγκόσμιες ημέρες:
+                <Text
+                  style={[
+                    styles.namesList,
+                    darkModeEnabled && styles.namesListDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  {worldDayToday}
+                </Text>
               </Text>
+            </View>
+          </View>
+        )}
+        {!hasPermission && (
+          <View
+            style={[
+              styles.celebrationBox,
+              darkModeEnabled && styles.celebrationBoxDark,
+            ]}
+          >
+            <Icon name="account-multiple" size={40} color="#60A5FA" />
+            <View style={[styles.textColumn, { flex: 1 }]}>
+              <Text
+                style={[
+                  styles.label,
+                  darkModeEnabled && styles.labelDark,
+                  { color: effectiveTextColor },
+                ]}
+              >
+                Δώστε πρόσβαση στις επαφές για να δείτε ποιοι φίλοι σας
+                γιορτάζουν!
+              </Text>
+              <TouchableOpacity
+                style={styles.permissionButton}
+                onPress={requestPermission}
+              >
+                <Text style={styles.permissionButtonText}>Δώστε άδεια</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {hasPermission && contactsCelebrating.length > 0 && (
+          <View
+            style={[
+              styles.celebrationBox,
+              darkModeEnabled && styles.celebrationBoxDark,
+            ]}
+          >
+            <Icon name="account-heart" size={40} color="#60A5FA" />
+            <View style={styles.textColumn}>
+              <Text
+                style={[
+                  styles.label,
+                  darkModeEnabled && styles.labelDark,
+                  { color: effectiveTextColor },
+                ]}
+              >
+                Επαφές που γιορτάζουν:
+              </Text>
+              <View style={styles.contactsRow}>
+                {contactsCelebrating.map((contact, index) => (
+                  <View key={contact.recordID} style={styles.contactItem}>
+                    <Text
+                      style={[
+                        styles.contactName,
+                        darkModeEnabled && styles.namesListDark,
+                        { color: effectiveTextColor },
+                      ]}
+                    >
+                      {contact.displayName}
+                    </Text>
+                    {contact.phoneNumbers &&
+                      contact.phoneNumbers.length > 0 && (
+                        <View style={styles.contactActions}>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Linking.openURL(
+                                `tel:${contact.phoneNumbers[0].number}`,
+                              )
+                            }
+                            style={styles.actionButton}
+                          >
+                            <Ionicons name="call" size={16} color="#10B981" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Linking.openURL(
+                                `sms:${contact.phoneNumbers[0].number}`,
+                              )
+                            }
+                            style={styles.actionButton}
+                          >
+                            <Ionicons name="mail" size={16} color="#3B82F6" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         )}
@@ -335,7 +482,7 @@ export default function MainScreen() {
     setSelectedYear(year);
     setShowYearPicker(false);
   };
-
+  [];
   useEffect(() => {
     setShowYearPicker(false);
   }, [currentScreen]);
@@ -603,6 +750,33 @@ const styles = StyleSheet.create({
   textColumn: {
     flex: 1,
   },
+  contactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginRight: 8,
+    marginBottom: 6,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    marginLeft: 6,
+    gap: 4,
+  },
+  actionButton: {
+    padding: 2,
+  },
+  contactName: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   candleIcon: {
     width: 40,
     height: 40,
@@ -625,6 +799,19 @@ const styles = StyleSheet.create({
   },
   placeholderDark: {
     color: '#6B7280',
+  },
+  permissionButton: {
+    backgroundColor: '#1E6AC7',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   settingsButton: {
     backgroundColor: 'transparent',

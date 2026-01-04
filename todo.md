@@ -1,8 +1,8 @@
 # Todo – Nameday App
 
 - [✔] skoteino thema
-- [ ] epiloges 2 kambadwn
-- [ ] egkrish xrhshs epafwn
+- [✔] epiloges 2 kambadwn
+- [✔] egkrish xrhshs epafwn
 - [ ] elegxos onomatwn epafwn kai ksanaperasma se oles is screens.
 - [✔] lista me onoamta eortwn oloklhrwsh
 - [✔] pagkosmies hmeres
@@ -14,3 +14,4 @@
 - [✔] kinoumenes eortes
 - [✔] SAVE SETTINGS
 - [ ] giorgides
+      [ ] web crowling F12
