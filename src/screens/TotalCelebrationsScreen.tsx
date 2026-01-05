@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { Datanames } from '../../data/datanames';
 import { getMovableNamedayEntries } from '../../data/movingCelebrations';
 import { worldDaysJanFeb } from '../../data/worldday';
@@ -69,6 +69,7 @@ const DayItem = React.memo(
     effectiveTextColor,
     backgroundColor,
     getContactsForNameday,
+    getSchemaMembersForNameday,
     hasPermission,
   }: {
     day: number;
@@ -83,6 +84,7 @@ const DayItem = React.memo(
     effectiveTextColor?: string;
     backgroundColor?: string;
     getContactsForNameday: (names: string[]) => any[];
+    getSchemaMembersForNameday: (names: string[]) => any[];
     hasPermission: boolean;
   }) => {
     const [expanded, setExpanded] = useState(false);
@@ -92,6 +94,9 @@ const DayItem = React.memo(
       expanded && hasPermission && names.length > 0
         ? getContactsForNameday(names)
         : [];
+
+    const schemaMembers =
+      expanded && names.length > 0 ? getSchemaMembersForNameday(names) : [];
     const date = new Date(year, monthIndex, day);
     const weekdayName = GREEK_WEEKDAYS[date.getDay()];
     const dayFormatted = String(day).padStart(2, '0');
@@ -263,6 +268,69 @@ const DayItem = React.memo(
                 </View>
               </View>
             )}
+            {schemaMembers && schemaMembers.length > 0 && (
+              <View style={styles.celebrationsSection}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    darkMode && styles.sectionTitleDark,
+                    { color: effectiveTextColor },
+                  ]}
+                >
+                  Μέλη σχημάτων που γιορτάζουν:
+                </Text>
+                <View style={styles.contactsRow}>
+                  {schemaMembers.map((member: any) => (
+                    <TouchableOpacity
+                      key={member.id}
+                      style={styles.contactItem}
+                      onPress={() => {
+                        const buttons = [
+                          ...(member.phoneNumber
+                            ? [
+                                {
+                                  text: '📞 Κλήση',
+                                  onPress: () =>
+                                    Linking.openURL(
+                                      `tel:${member.phoneNumber}`,
+                                    ),
+                                },
+                                {
+                                  text: '✉️ SMS',
+                                  onPress: () =>
+                                    Linking.openURL(
+                                      `sms:${member.phoneNumber}`,
+                                    ),
+                                },
+                              ]
+                            : []),
+                          {
+                            text: 'Κλείσιμο',
+                            style: 'cancel' as 'cancel',
+                          },
+                        ];
+                        Alert.alert(
+                          member.name,
+                          `${member.schemaName} • ${member.relation}`,
+                          buttons,
+                          { cancelable: true },
+                        );
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.contactNameClickable,
+                          darkMode && styles.namesTextDark,
+                          { color: effectiveTextColor },
+                        ]}
+                      >
+                        {member.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
             {names.length === 0 &&
               celebrations.length === 0 &&
               worldDays.length === 0 && (
@@ -291,7 +359,8 @@ export const TotalCelebrationsScreen = () => {
     backgroundColor,
     effectiveTextColor,
   } = useAppContext();
-  const { hasPermission, getContactsForNameday } = useContacts();
+  const { hasPermission, getContactsForNameday, getSchemaMembersForNameday } =
+    useContacts();
   const now = new Date();
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
@@ -448,6 +517,7 @@ export const TotalCelebrationsScreen = () => {
             effectiveTextColor={effectiveTextColor}
             backgroundColor={backgroundColor}
             getContactsForNameday={getContactsForNameday}
+            getSchemaMembersForNameday={getSchemaMembersForNameday}
             hasPermission={hasPermission}
           />
         )}
@@ -588,11 +658,6 @@ const styles = StyleSheet.create({
   sectionTitleDark: {
     color: '#60A5FA',
   },
-  contactsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-  },
   contactNameButton: {
     marginRight: 4,
   },
@@ -601,6 +666,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textDecorationLine: 'underline',
     color: '#1E6AC7',
+  },
+  schemaMemberItem: {
+    flexDirection: 'column',
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginRight: 5,
+    marginBottom: 4,
+  },
+  schemaLabel: {
+    fontSize: 10,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   namesText: {
     fontSize: 13,

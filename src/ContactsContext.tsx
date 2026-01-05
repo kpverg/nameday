@@ -12,6 +12,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import Contacts from 'react-native-contacts';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Contact {
   recordID: string;
@@ -19,6 +20,16 @@ interface Contact {
   familyName: string;
   displayName: string;
   phoneNumbers: { label: string; number: string }[];
+  givenNameGreeklish?: string;
+}
+
+interface SchemaMember {
+  id: string;
+  name: string;
+  relation: string;
+  birthday: string | null;
+  schemaName?: string;
+  isFromSchema?: boolean;
 }
 
 interface ContactsContextType {
@@ -26,9 +37,78 @@ interface ContactsContextType {
   hasPermission: boolean;
   requestPermission: () => Promise<boolean>;
   getContactsForNameday: (names: string[]) => Contact[];
+  getSchemaMembersForNameday: (names: string[]) => SchemaMember[];
   searchContactsByGreeklish: (query: string) => Contact[];
   refreshContacts: () => Promise<void>;
+  schemaMembers: SchemaMember[];
 }
+
+const SCHEMAS_STORAGE_KEY = '@nameday_schemas';
+
+// Greek to Greeklish conversion map
+const greekToGreeklish = (str: string): string => {
+  // First, remove accents
+  const normalized = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const map: { [key: string]: string } = {
+    Θ: 'Th',
+    θ: 'th',
+    Χ: 'Ch',
+    χ: 'ch',
+    Ψ: 'Ps',
+    ψ: 'ps',
+    Α: 'A',
+    α: 'a',
+    Β: 'V',
+    β: 'v',
+    Γ: 'G',
+    γ: 'g',
+    Δ: 'D',
+    δ: 'd',
+    Ε: 'E',
+    ε: 'e',
+    Ζ: 'Z',
+    ζ: 'z',
+    Η: 'I',
+    η: 'i',
+    Ι: 'I',
+    ι: 'i',
+    Κ: 'K',
+    κ: 'k',
+    Λ: 'L',
+    λ: 'l',
+    Μ: 'M',
+    μ: 'm',
+    Ν: 'N',
+    ν: 'n',
+    Ξ: 'X',
+    ξ: 'x',
+    Ο: 'O',
+    ο: 'o',
+    Π: 'P',
+    π: 'p',
+    Ρ: 'R',
+    ρ: 'r',
+    Σ: 'S',
+    σ: 's',
+    ς: 's',
+    Τ: 'T',
+    τ: 't',
+    Υ: 'Y',
+    υ: 'y',
+    Φ: 'F',
+    φ: 'f',
+    Ω: 'O',
+    ω: 'o',
+  };
+
+  let result = '';
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized[i];
+    result += map[char] || char;
+  }
+  return result.toLowerCase();
+};
 
 // Greeklish to Greek conversion
 const greeklishToGreek = (str: string): string => {
@@ -75,6 +155,62 @@ const ContactsContext = createContext<ContactsContextType | undefined>(
 export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [hasPermission, setHasPermission] = useState(false);
+  const [schemaMembers, setSchemaMembers] = useState<SchemaMember[]>([]);
+
+  // Load schemas and extract members
+  const loadSchemas = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(SCHEMAS_STORAGE_KEY);
+      console.log(
+        '[ContactsContext] Loading schemas from storage:',
+        stored ? 'found' : 'empty',
+      );
+      if (stored) {
+        const schemas = JSON.parse(stored);
+        console.log('[ContactsContext] Parsed schemas:', schemas.length);
+        const allMembers: SchemaMember[] = [];
+
+        schemas.forEach((schema: any) => {
+          console.log(
+            '[ContactsContext] Processing schema:',
+            schema.name,
+            'with',
+            schema.members?.length,
+            'members',
+          );
+          schema.members.forEach((member: any) => {
+            allMembers.push({
+              ...member,
+              schemaName: schema.name,
+              isFromSchema: true,
+              phoneNumber: schema.contactPhoneNumber || null,
+            });
+          });
+        });
+
+        console.log(
+          '[ContactsContext] Total schema members loaded:',
+          allMembers.length,
+        );
+        setSchemaMembers(allMembers);
+      } else {
+        setSchemaMembers([]);
+      }
+    } catch (error) {
+      console.error('Error loading schemas:', error);
+    }
+  };
+
+  // Listen for storage changes
+  useEffect(() => {
+    // Load immediately on mount
+    loadSchemas();
+
+    // Reload schemas periodically to catch updates
+    const interval = setInterval(loadSchemas, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const requestPermission = async (): Promise<boolean> => {
     try {
@@ -115,13 +251,17 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const allContacts = await Contacts.getAll();
       setContacts(
-        allContacts.map(c => ({
-          recordID: c.recordID,
-          givenName: c.givenName || '',
-          familyName: c.familyName || '',
-          displayName: c.displayName || c.givenName || '',
-          phoneNumbers: c.phoneNumbers || [],
-        })),
+        allContacts.map(c => {
+          const givenName = c.givenName || '';
+          return {
+            recordID: c.recordID,
+            givenName: givenName,
+            familyName: c.familyName || '',
+            displayName: c.displayName || givenName || '',
+            phoneNumbers: c.phoneNumbers || [],
+            givenNameGreeklish: greekToGreeklish(givenName),
+          };
+        }),
       );
     } catch (error) {
       console.error('Error loading contacts:', error);
@@ -133,41 +273,124 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
       .toLowerCase()
       .trim()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/ς$/, 'σ'); // Replace final ς with σ for better matching
   };
 
   const namesMatch = (contactName: string, namedayName: string): boolean => {
-    const normalizedContact = normalizeGreekName(contactName);
-    const normalizedNameday = normalizeGreekName(namedayName);
+    let normalizedContact = normalizeGreekName(contactName);
+    let normalizedNameday = normalizeGreekName(namedayName);
 
     if (!normalizedContact || !normalizedNameday) return false;
 
-    // Exact match
+    // Remove trailing 'ς' or 'σ' for flexible matching (Ιωάννης vs Ιωάννη)
+    const stripEnding = (str: string) => str.replace(/[ςσ]$/, '');
+    const contactStripped = stripEnding(normalizedContact);
+    const namedayStripped = stripEnding(normalizedNameday);
+
+    // Exact match (with or without final sigma)
     if (normalizedContact === normalizedNameday) return true;
+    if (contactStripped === namedayStripped) return true;
 
     // Check if contact name is within the nameday name (for compound names)
     const contactWords = normalizedContact.split(/\s+/);
     const namedayWords = normalizedNameday.split(/\s+/);
 
     // Check if any word in contact name matches any word in nameday
-    return contactWords.some(cWord =>
-      namedayWords.some(
-        nWord =>
+    const wordMatch = contactWords.some(cWord => {
+      const cWordStripped = stripEnding(cWord);
+      return namedayWords.some(nWord => {
+        const nWordStripped = stripEnding(nWord);
+        return (
+          cWord === nWord ||
+          cWordStripped === nWordStripped ||
+          (cWord.length >= 4 && nWord.startsWith(cWord)) ||
+          (nWord.length >= 4 && cWord.startsWith(nWord)) ||
+          (cWordStripped.length >= 4 &&
+            nWordStripped.startsWith(cWordStripped)) ||
+          (nWordStripped.length >= 4 && cWordStripped.startsWith(nWordStripped))
+        );
+      });
+    });
+
+    if (wordMatch) return true;
+
+    // Check Greeklish matching - already have normalized greeklish
+    const contactGreeklish = greekToGreeklish(contactName);
+    const namedayGreeklish = greekToGreeklish(namedayName);
+
+    // Compare without spaces
+    if (
+      contactGreeklish.replace(/\s+/g, '') ===
+      namedayGreeklish.replace(/\s+/g, '')
+    ) {
+      return true;
+    }
+
+    // Check if greeklish contact name starts with or is contained in nameday greeklish
+    const contactGreeklishWords = contactGreeklish.split(/\s+/).filter(w => w);
+    const namedayGreeklishWords = namedayGreeklish.split(/\s+/).filter(w => w);
+
+    return contactGreeklishWords.some(cWord => {
+      return namedayGreeklishWords.some(nWord => {
+        return (
           cWord === nWord ||
           (cWord.length >= 4 && nWord.startsWith(cWord)) ||
-          (nWord.length >= 4 && cWord.startsWith(nWord)),
-      ),
-    );
+          (nWord.length >= 4 && cWord.startsWith(nWord))
+        );
+      });
+    });
   };
 
   const getContactsForNameday = (names: string[]): Contact[] => {
     if (!names || names.length === 0) return [];
 
+    // Pre-calculate greeklish for all nameday names
+    const namedayGreeklish = names.map(name => ({
+      original: name,
+      greeklish: greekToGreeklish(name),
+    }));
+
     return contacts.filter(contact => {
       const givenName = contact.givenName;
+      const contactGreeklish = contact.givenNameGreeklish || '';
 
-      return names.some(namedayName => namesMatch(givenName, namedayName));
+      return namedayGreeklish.some(nameday =>
+        namesMatch(givenName, nameday.original),
+      );
     });
+  };
+
+  const getSchemaMembersForNameday = (names: string[]): SchemaMember[] => {
+    if (!names || names.length === 0) return [];
+
+    console.log(
+      '[ContactsContext] getSchemaMembersForNameday called with names:',
+      names,
+    );
+    console.log(
+      '[ContactsContext] Total schemaMembers available:',
+      schemaMembers.length,
+    );
+
+    const matching = schemaMembers.filter(member => {
+      const matches = names.some(namedayName => {
+        const result = namesMatch(member.name, namedayName);
+        if (result) {
+          console.log(
+            '[ContactsContext] Match found:',
+            member.name,
+            'matches',
+            namedayName,
+          );
+        }
+        return result;
+      });
+      return matches;
+    });
+
+    console.log('[ContactsContext] Matching schema members:', matching.length);
+    return matching;
   };
 
   const searchContactsByGreeklish = (query: string): Contact[] => {
@@ -243,6 +466,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       subscription.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAppStateChange = async (state: AppStateStatus) => {
@@ -263,8 +487,10 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     hasPermission,
     requestPermission,
     getContactsForNameday,
+    getSchemaMembersForNameday,
     searchContactsByGreeklish,
     refreshContacts,
+    schemaMembers,
   };
 
   return (

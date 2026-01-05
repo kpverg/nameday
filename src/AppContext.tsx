@@ -21,6 +21,8 @@ interface AppContextType {
   setGlobalDaysEnabled: (value: boolean) => void;
   darkModeEnabled: boolean;
   setDarkModeEnabled: (value: boolean) => void;
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (value: boolean) => void;
   backgroundTone: BackgroundTone;
   setBackgroundTone: (value: BackgroundTone) => void;
   textTone: TextTone;
@@ -38,6 +40,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const STORAGE_KEYS = {
   GLOBAL_DAYS: 'app_global_days_enabled',
   DARK_MODE: 'app_dark_mode_enabled',
+  NOTIFICATIONS: 'app_notifications_enabled',
   BACKGROUND_TONE: 'app_background_tone',
   TEXT_TONE: 'app_text_tone',
   SELECTED_YEAR: 'app_selected_year',
@@ -46,6 +49,7 @@ const STORAGE_KEYS = {
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [globalDaysEnabled, setGlobalDaysEnabledState] = useState(false);
   const [darkModeEnabled, setDarkModeEnabledState] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabledState] = useState(false);
   const [backgroundTone, setBackgroundToneState] =
     useState<BackgroundTone>('neutral');
   const [textTone, setTextToneState] = useState<TextTone>('normal');
@@ -83,12 +87,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const [
           globalDays,
           darkMode,
+          notifications,
           storedBackground,
           storedTextTone,
           storedYear,
         ] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.GLOBAL_DAYS),
           AsyncStorage.getItem(STORAGE_KEYS.DARK_MODE),
+          AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
           AsyncStorage.getItem(STORAGE_KEYS.BACKGROUND_TONE),
           AsyncStorage.getItem(STORAGE_KEYS.TEXT_TONE),
           AsyncStorage.getItem(STORAGE_KEYS.SELECTED_YEAR),
@@ -99,6 +105,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
         if (darkMode !== null) {
           setDarkModeEnabledState(darkMode === 'true');
+        }
+        if (notifications !== null) {
+          setNotificationsEnabledState(notifications === 'true');
         }
         if (storedYear !== null) {
           const y = parseInt(storedYear, 10);
@@ -142,6 +151,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Save notifications setting
+  const setNotificationsEnabled = async (value: boolean) => {
+    try {
+      setNotificationsEnabledState(value);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, String(value));
+    } catch (error) {
+      console.error('Error saving notifications setting:', error);
+    }
+  };
+
   const setBackgroundTone = async (value: BackgroundTone) => {
     try {
       setBackgroundToneState(value);
@@ -175,6 +194,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setGlobalDaysEnabled,
     darkModeEnabled,
     setDarkModeEnabled,
+    notificationsEnabled,
+    setNotificationsEnabled,
     backgroundTone,
     setBackgroundTone,
     textTone,

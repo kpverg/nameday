@@ -61,6 +61,20 @@ function addDays(base: Date, days: number): Date {
   return new Date(base.getTime() + days * 86400000);
 }
 
+function georgiosNameDay(year: number): Date {
+  const easter = orthodoxEaster(year);
+  const april23 = new Date(year, 3, 23); // μήνες: 0-based
+
+  if (april23 < easter) {
+    // Δευτέρα του Πάσχα
+    const easterMonday = new Date(easter);
+    easterMonday.setDate(easterMonday.getDate() + 1);
+    return easterMonday;
+  }
+
+  return april23;
+}
+
 export function movableFeasts(year: number): Record<string, Date> {
   const easter = orthodoxEaster(year);
   // Υπολογισμοί για όλες τις κινητές εορτές
@@ -92,6 +106,7 @@ export function movableFeasts(year: number): Record<string, Date> {
   const thirdOfDiakainisimos = addDays(easter, 10); // 3η Διακαινησίμου (Τετάρτη μετά το Πάσχα)
   const zoodochosPigi = addDays(easter, 12); // Ζωοδόχος Πηγή (Παρασκευή μετά το Πάσχα)
   const mayDay = new Date(year, 4, 1); // Εργατική Πρωτομαγιά
+  const georgios = georgiosNameDay(year); // Άγιος Γεώργιος
   // Γιορτή της Μητέρας: 2η Κυριακή Μαΐου
   let mothersDay = new Date(year, 4, 1);
   let sundayCount = 0;
@@ -140,6 +155,7 @@ export function movableFeasts(year: number): Record<string, Date> {
     'Ζωοδόχος Πηγή': zoodochosPigi,
     'Εργατική Πρωτομαγιά': mayDay,
     'Γιορτή της Μητέρας': mothersDay,
+    'Άγιος Γεώργιος': georgios,
     Ανάληψη: ascension,
     Πεντηκοστή: pentecost,
     'Αγίου Πνεύματος': holySpirit,

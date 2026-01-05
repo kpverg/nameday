@@ -18,9 +18,11 @@ import { ContactsProvider } from './src/ContactsContext';
 import MainScreen from './src/screens/MainScreen';
 import SplashLoading from './src/SplashLoading';
 import { useState, useEffect } from 'react';
+import { useNotifications } from './src/useNotifications';
 
 function AppContent() {
   const { isLoading, backgroundColor, textColor } = useAppContext();
+  useNotifications(); // Initialize notifications
   const isDarkMode = useColorScheme() === 'dark';
   const [showApp, setShowApp] = useState(!isLoading);
 

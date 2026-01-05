@@ -83,8 +83,6 @@ const SettingItem = ({
 };
 
 export const SettingsScreen = () => {
-  const [notifications, setNotifications] = useState(true);
-  const [reminders, setReminders] = useState(true);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,6 +91,8 @@ export const SettingsScreen = () => {
     setGlobalDaysEnabled,
     darkModeEnabled,
     setDarkModeEnabled,
+    notificationsEnabled,
+    setNotificationsEnabled,
     backgroundTone,
     setBackgroundTone,
     textTone,
@@ -234,17 +234,9 @@ export const SettingsScreen = () => {
         <SettingItem
           icon="notifications"
           title="Ενεργοποίηση ειδοποιήσεων"
-          value={notifications}
-          onToggle={setNotifications}
-          darkMode={darkModeEnabled}
-        />
-        <SettingItem
-          icon="alarm"
-          title="Ειδοποιήσεις Υπενθυμίσεων"
-          subtitle="Πλοποίηση αν έχετε την ενεργοποίηση"
-          value={reminders}
-          onToggle={setReminders}
-          onPress={() => {}}
+          subtitle="Λήψη ειδοποιήσεων για τις σημερινές γιορτές"
+          value={notificationsEnabled}
+          onToggle={setNotificationsEnabled}
           darkMode={darkModeEnabled}
         />
       </View>

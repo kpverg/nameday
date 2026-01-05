@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useState, useEffect } from 'react';
@@ -63,6 +64,7 @@ interface DayInfo {
   worldDays: string[];
   isToday: boolean;
   contacts: any[];
+  schemaMembers: any[];
 }
 
 const DayCard = ({
@@ -82,24 +84,35 @@ const DayCard = ({
     ]}
   >
     <View style={styles.dayHeader}>
-      <Text
-        style={[
-          styles.dayName,
-          item.isToday && styles.dayNameToday,
-          { color: effectiveTextColor },
-        ]}
-      >
-        {item.weekday}
-      </Text>
-      <Text
-        style={[
-          styles.dayDate,
-          item.isToday && styles.dayDateToday,
-          { color: effectiveTextColor },
-        ]}
-      >
-        {item.date}
-      </Text>
+      {
+        // Use a contrasting text color for today's card so it remains readable
+      }
+      {(() => {
+        const headerTextColor = item.isToday ? '#0B1220' : effectiveTextColor;
+        const bodyTextColor = item.isToday ? '#0B1220' : effectiveTextColor;
+        return (
+          <>
+            <Text
+              style={[
+                styles.dayName,
+                item.isToday && styles.dayNameToday,
+                { color: headerTextColor },
+              ]}
+            >
+              {item.weekday}
+            </Text>
+            <Text
+              style={[
+                styles.dayDate,
+                item.isToday && styles.dayDateToday,
+                { color: headerTextColor },
+              ]}
+            >
+              {item.date}
+            </Text>
+          </>
+        );
+      })()}
     </View>
 
     {item.names.length > 0 && (
@@ -108,7 +121,7 @@ const DayCard = ({
           style={[
             styles.sectionTitle,
             darkMode && styles.sectionTitleDark,
-            { color: effectiveTextColor },
+            { color: item.isToday ? '#0B1220' : effectiveTextColor },
           ]}
         >
           Ονόματα:
@@ -117,7 +130,7 @@ const DayCard = ({
           style={[
             styles.namesText,
             darkMode && styles.namesTextDark,
-            { color: effectiveTextColor },
+            { color: item.isToday ? '#0B1220' : effectiveTextColor },
           ]}
         >
           {item.names.join(', ')}
@@ -131,7 +144,7 @@ const DayCard = ({
           style={[
             styles.sectionTitle,
             darkMode && styles.sectionTitleDark,
-            { color: effectiveTextColor },
+            { color: item.isToday ? '#0B1220' : effectiveTextColor },
           ]}
         >
           Εορτές:
@@ -142,7 +155,7 @@ const DayCard = ({
             style={[
               styles.celebrationText,
               darkMode && styles.celebrationTextDark,
-              { color: effectiveTextColor },
+              { color: item.isToday ? '#0B1220' : effectiveTextColor },
             ]}
           >
             • {celebration}
@@ -157,7 +170,7 @@ const DayCard = ({
           style={[
             styles.sectionTitle,
             darkMode && styles.sectionTitleDark,
-            { color: effectiveTextColor },
+            { color: item.isToday ? '#0B1220' : effectiveTextColor },
           ]}
         >
           Παγκόσμιες ημέρες:
@@ -168,7 +181,7 @@ const DayCard = ({
             style={[
               styles.celebrationText,
               darkMode && styles.celebrationTextDark,
-              { color: effectiveTextColor },
+              { color: item.isToday ? '#0B1220' : effectiveTextColor },
             ]}
           >
             • {day}
@@ -195,7 +208,7 @@ const DayCard = ({
                 style={[
                   styles.contactName,
                   darkMode && styles.namesTextDark,
-                  { color: effectiveTextColor },
+                  { color: item.isToday ? '#0B1220' : effectiveTextColor },
                 ]}
               >
                 {contact.displayName}
@@ -226,6 +239,66 @@ const DayCard = ({
       </View>
     )}
 
+    {item.schemaMembers && item.schemaMembers.length > 0 && (
+      <View style={styles.section}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            darkMode && styles.sectionTitleDark,
+            { color: effectiveTextColor },
+          ]}
+        >
+          Μέλη σχημάτων που γιορτάζουν:
+        </Text>
+        <View style={styles.contactsRow}>
+          {item.schemaMembers.map((member: any) => (
+            <TouchableOpacity
+              key={member.id}
+              style={styles.contactItem}
+              onPress={() => {
+                const buttons = [
+                  ...(member.phoneNumber
+                    ? [
+                        {
+                          text: '📞 Κλήση',
+                          onPress: () =>
+                            Linking.openURL(`tel:${member.phoneNumber}`),
+                        },
+                        {
+                          text: '✉️ SMS',
+                          onPress: () =>
+                            Linking.openURL(`sms:${member.phoneNumber}`),
+                        },
+                      ]
+                    : []),
+                  {
+                    text: 'Κλείσιμο',
+                    style: 'cancel',
+                  },
+                ];
+                Alert.alert(
+                  member.name,
+                  `${member.schemaName} • ${member.relation}`,
+                  buttons,
+                  { cancelable: true },
+                );
+              }}
+            >
+              <Text
+                style={[
+                  styles.contactName,
+                  darkMode && styles.namesTextDark,
+                  { color: item.isToday ? '#0B1220' : effectiveTextColor },
+                ]}
+              >
+                {member.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    )}
+
     {item.names.length === 0 &&
       item.celebrations.length === 0 &&
       item.worldDays.length === 0 && (
@@ -241,7 +314,8 @@ export const WeekScreen = () => {
     backgroundColor,
     effectiveTextColor,
   } = useAppContext();
-  const { hasPermission, getContactsForNameday } = useContacts();
+  const { hasPermission, getContactsForNameday, getSchemaMembersForNameday } =
+    useContacts();
   const [weekData, setWeekData] = useState<DayInfo[]>([]);
 
   useEffect(() => {
@@ -277,6 +351,8 @@ export const WeekScreen = () => {
       const names = entry?.names ?? [];
       const contactsCelebrating =
         hasPermission && names.length > 0 ? getContactsForNameday(names) : [];
+      const schemaMembersCelebrating =
+        names.length > 0 ? getSchemaMembersForNameday(names) : [];
 
       weekDays.push({
         weekday,
@@ -287,6 +363,7 @@ export const WeekScreen = () => {
         celebrations: entry?.celebrations ?? [],
         worldDays,
         contacts: contactsCelebrating,
+        schemaMembers: schemaMembersCelebrating,
         isToday:
           date.getFullYear() === todayYear &&
           date.getMonth() === todayMonth &&
@@ -295,7 +372,12 @@ export const WeekScreen = () => {
     }
 
     setWeekData(weekDays);
-  }, [globalDaysEnabled, hasPermission, getContactsForNameday]);
+  }, [
+    globalDaysEnabled,
+    hasPermission,
+    getContactsForNameday,
+    getSchemaMembersForNameday,
+  ]);
 
   return (
     <ScrollView
@@ -431,6 +513,14 @@ const styles = StyleSheet.create({
   contactName: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  schemaMemberInfo: {
+    flexDirection: 'column',
+  },
+  schemaLabel: {
+    fontSize: 11,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   sectionTitle: {
     fontSize: 12,

@@ -4,10 +4,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Button,
   Linking,
   Alert,
 } from 'react-native';
+// Disable lint rule that flags inline styles as errors in editor
+/* eslint-disable react-native/no-inline-styles */
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useState, useEffect, useMemo } from 'react';
@@ -39,8 +40,9 @@ import {
 // Navigation imports not used with custom bottom nav
 import { TotalCelebrationsScreen } from './TotalCelebrationsScreen';
 import { WeekScreen } from './WeekScreen';
-import { AddSchemaScreen } from './AddSchemaScreen';
+import AddSchemaScreen from './AddSchemaScreen';
 import { SettingsScreen } from './SettingsScreen';
+import SearchScreen from './SearchScreen';
 
 function DayScreenContent() {
   const {
@@ -49,8 +51,12 @@ function DayScreenContent() {
     backgroundColor,
     effectiveTextColor,
   } = useAppContext();
-  const { hasPermission, requestPermission, getContactsForNameday } =
-    useContacts();
+  const {
+    hasPermission,
+    requestPermission,
+    getContactsForNameday,
+    getSchemaMembersForNameday,
+  } = useContacts();
   const formatDate = () =>
     new Date().toLocaleDateString('el-GR', {
       weekday: 'long',
@@ -64,6 +70,9 @@ function DayScreenContent() {
   const [celebrationToday, setCelebrationToday] = useState<string | null>(null);
   const [worldDayToday, setWorldDayToday] = useState<string | null>(null);
   const [contactsCelebrating, setContactsCelebrating] = useState<any[]>([]);
+  const [schemaMembersCelebrating, setSchemaMembersCelebrating] = useState<
+    any[]
+  >([]);
 
   useEffect(() => {
     let timeoutId: any;
@@ -120,6 +129,19 @@ function DayScreenContent() {
       } else {
         setContactsCelebrating([]);
       }
+
+      // Get schema members celebrating today
+      if (names.length > 0) {
+        console.log(
+          '[MainScreen] Calling getSchemaMembersForNameday with:',
+          names,
+        );
+        const members = getSchemaMembersForNameday(names);
+        console.log('[MainScreen] Got schema members:', members.length);
+        setSchemaMembersCelebrating(members);
+      } else {
+        setSchemaMembersCelebrating([]);
+      }
     };
     const scheduleNext = () => {
       const now = new Date();
@@ -142,7 +164,12 @@ function DayScreenContent() {
     applyUpdate();
     scheduleNext();
     return () => clearTimeout(timeoutId);
-  }, [globalDaysEnabled, hasPermission, getContactsForNameday]);
+  }, [
+    globalDaysEnabled,
+    hasPermission,
+    getContactsForNameday,
+    getSchemaMembersForNameday,
+  ]);
 
   const images = [
     require('../../img/OIP.jpg'),
@@ -193,7 +220,7 @@ function DayScreenContent() {
           ]}
         >
           <Image
-            source={require('../../assets/candle.jpg')}
+            source={require('../../assets/candle.png')}
             style={styles.candleIcon}
           />
           <View style={styles.textColumn}>
@@ -236,7 +263,7 @@ function DayScreenContent() {
             ]}
           >
             <Image
-              source={require('../../assets/candle.jpg')}
+              source={require('../../assets/candle.png')}
               style={styles.candleIcon}
             />
             <View style={styles.textColumn}>
@@ -269,7 +296,7 @@ function DayScreenContent() {
             ]}
           >
             <Image
-              source={require('../../assets/candle.jpg')}
+              source={require('../../assets/candle.png')}
               style={styles.candleIcon}
             />
             <View style={styles.textColumn}>
@@ -341,7 +368,7 @@ function DayScreenContent() {
                 Επαφές που γιορτάζουν:
               </Text>
               <View style={styles.contactsRow}>
-                {contactsCelebrating.map((contact, index) => (
+                {contactsCelebrating.map(contact => (
                   <View key={contact.recordID} style={styles.contactItem}>
                     <Text
                       style={[
@@ -383,6 +410,73 @@ function DayScreenContent() {
             </View>
           </View>
         )}
+        {schemaMembersCelebrating.length > 0 && (
+          <View
+            style={[
+              styles.celebrationBox,
+              darkModeEnabled && styles.celebrationBoxDark,
+            ]}
+          >
+            <Icon name="account-group" size={40} color="#10B981" />
+            <View style={styles.textColumn}>
+              <Text
+                style={[
+                  styles.label,
+                  darkModeEnabled && styles.labelDark,
+                  { color: effectiveTextColor },
+                ]}
+              >
+                Μέλη σχημάτων που γιορτάζουν:
+              </Text>
+              <View style={styles.contactsRow}>
+                {schemaMembersCelebrating.map(member => (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={styles.contactItem}
+                    onPress={() => {
+                      const buttons = [
+                        ...(member.phoneNumber
+                          ? [
+                              {
+                                text: '📞 Κλήση',
+                                onPress: () =>
+                                  Linking.openURL(`tel:${member.phoneNumber}`),
+                              },
+                              {
+                                text: '✉️ SMS',
+                                onPress: () =>
+                                  Linking.openURL(`sms:${member.phoneNumber}`),
+                              },
+                            ]
+                          : []),
+                        {
+                          text: 'Κλείσιμο',
+                          style: 'cancel' as 'cancel',
+                        },
+                      ];
+                      Alert.alert(
+                        member.name,
+                        `${member.schemaName} • ${member.relation}`,
+                        buttons,
+                        { cancelable: true },
+                      );
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.contactName,
+                        darkModeEnabled && styles.namesListDark,
+                        { color: effectiveTextColor },
+                      ]}
+                    >
+                      {member.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -394,6 +488,7 @@ type TopBarProps = {
   yearOptions: number[];
   selectedYear: number;
   onSelectYear: (year: number) => void;
+  onSearch: () => void;
 };
 
 function TopBar({
@@ -402,6 +497,7 @@ function TopBar({
   yearOptions,
   selectedYear,
   onSelectYear,
+  onSearch,
 }: TopBarProps) {
   const insets = useSafeAreaInsets();
   const { darkModeEnabled } = useAppContext();
@@ -418,13 +514,17 @@ function TopBar({
           accessibilityRole="button"
           onPress={onToggleYearPicker}
         >
-          <Ionicons name="calendar-outline" size={30} color="#fff" />
+          <Ionicons name="calendar-outline" size={26} color="#fff" />
         </TouchableOpacity>
       </View>
       <Text style={styles.topTitle}>Εορτολόγιο</Text>
       <View style={styles.topRight}>
-        <TouchableOpacity accessibilityRole="button" style={styles.iconButton}>
-          <Ionicons name="search" size={22} color="#fff" />
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.iconButton}
+          onPress={onSearch}
+        >
+          <Ionicons name="search" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
       {showYearPicker && (
@@ -469,7 +569,7 @@ const colors = {
 export default function MainScreen() {
   const { darkModeEnabled, selectedYear, setSelectedYear } = useAppContext();
   const [currentScreen, setCurrentScreen] = useState<
-    'day' | 'month' | 'week' | 'close' | 'settings'
+    'day' | 'month' | 'week' | 'close' | 'settings' | 'search'
   >('day');
   const [showYearPicker, setShowYearPicker] = useState(false);
 
@@ -499,6 +599,8 @@ export default function MainScreen() {
         return <AddSchemaScreen />;
       case 'settings':
         return <SettingsScreen />;
+      case 'search':
+        return <SearchScreen onBack={() => setCurrentScreen('day')} />;
       default:
         return <DayScreenContent />;
     }
@@ -516,6 +618,7 @@ export default function MainScreen() {
             yearOptions={yearOptions}
             selectedYear={selectedYear}
             onSelectYear={handleSelectYear}
+            onSearch={() => setCurrentScreen('search')}
           />
           <View
             style={[
@@ -598,7 +701,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E3A8A',
   },
   topLeft: {
-    width: 56,
+    width: 48,
     alignItems: 'center',
   },
   topRight: {
@@ -649,7 +752,7 @@ const styles = StyleSheet.create({
   },
   topTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   screenContainer: {
@@ -776,6 +879,14 @@ const styles = StyleSheet.create({
   contactName: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  schemaMemberInfo: {
+    flexDirection: 'column',
+  },
+  schemaLabel: {
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   candleIcon: {
     width: 40,
