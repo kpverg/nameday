@@ -3,35 +3,23 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Linking,
   Alert,
+  ScrollView,
 } from 'react-native';
 // Disable lint rule that flags inline styles as errors in editor
 /* eslint-disable react-native/no-inline-styles */
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useState, useEffect, useMemo } from 'react';
-import { Datanames } from '../../data/datanames';
-import { getMovableNamedayEntries } from '../../data/movingCelebrations';
-import { worldDaysJanFeb } from '../../data/worldday';
 import { useAppContext } from '../AppContext';
 import { useContacts } from '../ContactsContext';
+import {
+  findNamedayLocal,
+  findWorldDayLocal,
+  formatDate,
+} from '../services/namedayService';
 
-const GREEK_MONTHS = [
-  'Ιανουάριος',
-  'Φεβρουάριος',
-  'Μάρτιος',
-  'Απρίλιος',
-  'Μάιος',
-  'Ιούνιος',
-  'Ιούλιος',
-  'Αύγουστος',
-  'Σεπτέμβριος',
-  'Οκτώβριος',
-  'Νοέμβριος',
-  'Δεκέμβριος',
-];
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   SafeAreaProvider,
@@ -40,7 +28,7 @@ import {
 // Navigation imports not used with custom bottom nav
 import { TotalCelebrationsScreen } from './TotalCelebrationsScreen';
 import { WeekScreen } from './WeekScreen';
-import AddSchemaScreen from './AddSchemaScreen';
+import MyPeopleScreen from './MyPeopleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import SearchScreen from './SearchScreen';
 
@@ -55,64 +43,22 @@ function DayScreenContent() {
     hasPermission,
     requestPermission,
     getContactsForNameday,
-    getSchemaMembersForNameday,
+    getMyPeopleForNameday,
   } = useContacts();
-  const formatDate = () =>
-    new Date().toLocaleDateString('el-GR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
 
-  const [dateString, setDateString] = useState(formatDate());
+  const [dateString, setDateString] = useState(formatDate(new Date()));
   const [namesToday, setNamesToday] = useState<string[]>([]);
   const [celebrationToday, setCelebrationToday] = useState<string | null>(null);
   const [worldDayToday, setWorldDayToday] = useState<string | null>(null);
   const [contactsCelebrating, setContactsCelebrating] = useState<any[]>([]);
-  const [schemaMembersCelebrating, setSchemaMembersCelebrating] = useState<
-    any[]
-  >([]);
+  const [myPeopleCelebrating, setMyPeopleCelebrating] = useState<any[]>([]);
 
   useEffect(() => {
     let timeoutId: any;
-    const findNamedayLocal = (dt: Date) => {
-      const monthName = GREEK_MONTHS[dt.getMonth()];
-      const dayNum = dt.getDate();
-      const staticEntry = Datanames.find(
-        e => e.month === monthName && e.day === dayNum,
-      );
-      const movingEntries = getMovableNamedayEntries(dt.getFullYear());
-      const movingEntry = movingEntries.find(
-        e => e.month === monthName && e.day === dayNum,
-      );
-
-      if (!staticEntry && !movingEntry) return undefined as any;
-
-      return {
-        names: [...(staticEntry?.names ?? []), ...(movingEntry?.names ?? [])],
-        celebrations: [
-          ...(staticEntry?.celebrations ?? []),
-          ...(movingEntry?.celebrations ?? []),
-        ],
-      };
-    };
-
-    const findWorldDayLocal = (dt: Date) => {
-      const monthName = GREEK_MONTHS[dt.getMonth()];
-      const dayNum = dt.getDate();
-      const dayString = `${dayNum} ${monthName}`;
-      // Search for exact match
-      return (
-        worldDaysJanFeb.find(
-          wd => wd.date === dayString || wd.date.includes(dayString),
-        )?.title ?? null
-      );
-    };
 
     const applyUpdate = () => {
       const now = new Date();
-      setDateString(formatDate());
+      setDateString(formatDate(now));
       const entry = findNamedayLocal(now);
       const names = entry?.names ?? [];
       setNamesToday(names);
@@ -130,17 +76,14 @@ function DayScreenContent() {
         setContactsCelebrating([]);
       }
 
-      // Get schema members celebrating today
+      // Get my people celebrating today
       if (names.length > 0) {
-        console.log(
-          '[MainScreen] Calling getSchemaMembersForNameday with:',
-          names,
-        );
-        const members = getSchemaMembersForNameday(names);
-        console.log('[MainScreen] Got schema members:', members.length);
-        setSchemaMembersCelebrating(members);
+        console.log('[MainScreen] Calling getMyPeopleForNameday with:', names);
+        const members = getMyPeopleForNameday(names);
+        console.log('[MainScreen] Got my people members:', members.length);
+        setMyPeopleCelebrating(members);
       } else {
-        setSchemaMembersCelebrating([]);
+        setMyPeopleCelebrating([]);
       }
     };
     const scheduleNext = () => {
@@ -168,38 +111,27 @@ function DayScreenContent() {
     globalDaysEnabled,
     hasPermission,
     getContactsForNameday,
-    getSchemaMembersForNameday,
+    getMyPeopleForNameday,
   ]);
 
-  const images = [
-    require('../../img/OIP.jpg'),
-    require('../../img/OIP (1).jpg'),
-    require('../../img/OIP (2).jpg'),
-    require('../../img/OIP (3).jpg'),
-    require('../../img/OIP (4).jpg'),
-    require('../../img/OIP (5).jpg'),
-    require('../../img/OIP (6).jpg'),
-    require('../../img/OIP (7).jpg'),
-  ];
-  const randomImage = images[Math.floor(Math.random() * images.length)];
-
   return (
-    <View
+    <ScrollView
       style={[
         styles.screenContainer,
         { backgroundColor: darkModeEnabled ? '#111827' : backgroundColor },
       ]}
+      contentContainerStyle={{ paddingBottom: 30 }}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.heroWrap}>
-        <Image source={randomImage} style={styles.heroImage} />
         <View style={styles.heroOverlay}>
           <View style={styles.heroContent}>
-            <Text style={[styles.heroDate, { color: effectiveTextColor }]}>
+            <Text style={[styles.heroDate, { color: '#fff' }]}>
               {dateString}
             </Text>
             {celebrationToday ? (
               <Text
-                style={[styles.heroCelebration, { color: effectiveTextColor }]}
+                style={[styles.heroCelebration, { color: '#fff' }]}
               >
                 {celebrationToday}
               </Text>
@@ -219,10 +151,6 @@ function DayScreenContent() {
             darkModeEnabled && styles.celebrationBoxDark,
           ]}
         >
-          <Image
-            source={require('../../assets/candle.png')}
-            style={styles.candleIcon}
-          />
           <View style={styles.textColumn}>
             <Text
               style={[
@@ -262,10 +190,6 @@ function DayScreenContent() {
               darkModeEnabled && styles.celebrationBoxDark,
             ]}
           >
-            <Image
-              source={require('../../assets/candle.png')}
-              style={styles.candleIcon}
-            />
             <View style={styles.textColumn}>
               <Text
                 style={[
@@ -295,10 +219,6 @@ function DayScreenContent() {
               darkModeEnabled && styles.celebrationBoxDark,
             ]}
           >
-            <Image
-              source={require('../../assets/candle.png')}
-              style={styles.candleIcon}
-            />
             <View style={styles.textColumn}>
               <Text
                 style={[
@@ -410,7 +330,7 @@ function DayScreenContent() {
             </View>
           </View>
         )}
-        {schemaMembersCelebrating.length > 0 && (
+        {myPeopleCelebrating.length > 0 && (
           <View
             style={[
               styles.celebrationBox,
@@ -426,10 +346,10 @@ function DayScreenContent() {
                   { color: effectiveTextColor },
                 ]}
               >
-                Μέλη σχημάτων που γιορτάζουν:
+                Δικοί μου άνθρωποι (εορτολόγιο):
               </Text>
               <View style={styles.contactsRow}>
-                {schemaMembersCelebrating.map(member => (
+                {myPeopleCelebrating.map(member => (
                   <TouchableOpacity
                     key={member.id}
                     style={styles.contactItem}
@@ -456,7 +376,7 @@ function DayScreenContent() {
                       ];
                       Alert.alert(
                         member.name,
-                        `${member.schemaName} • ${member.relation}`,
+                        `${member.name} • ${member.relation}`,
                         buttons,
                         { cancelable: true },
                       );
@@ -478,7 +398,7 @@ function DayScreenContent() {
           </View>
         )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -596,7 +516,7 @@ export default function MainScreen() {
       case 'week':
         return <WeekScreen />;
       case 'close':
-        return <AddSchemaScreen />;
+        return <MyPeopleScreen />;
       case 'settings':
         return <SettingsScreen />;
       case 'search':
@@ -643,7 +563,7 @@ export default function MainScreen() {
               ['Ημέρα', 'home-outline', 'day'],
               ['Μήνας', 'calendar-month-outline', 'month'],
               ['Εβδομάδα', 'calendar-week-outline', 'week'],
-              ['Στενοί', 'account-group-outline', 'close'],
+              ['Δικοί μου', 'account-group-outline', 'close'],
               ['Ρυθμίσεις', 'cog-outline', 'settings'],
             ].map(([label, icon, screen]) => (
               <TouchableOpacity
@@ -760,7 +680,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingTop: 20,
-    justifyContent: 'flex-start',
     position: 'relative',
   },
   screenContainerDark: {
@@ -768,16 +687,11 @@ const styles = StyleSheet.create({
   },
   heroWrap: {
     width: '100%',
-    height: 180,
+    height: 120,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    backgroundColor: colors.primary,
   },
   heroOverlay: {
     position: 'absolute',
@@ -798,13 +712,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   heroCelebration: {
-    color: '#fff',
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   namesList: {
     fontSize: 14,
@@ -814,12 +724,8 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
   },
   heroDate: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 16,
+    fontWeight: '700',
   },
   title: {
     fontSize: 22,
@@ -880,19 +786,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  schemaMemberInfo: {
+  myPeopleMemberInfo: {
     flexDirection: 'column',
   },
-  schemaLabel: {
+  myPeopleLabel: {
     fontSize: 12,
     marginTop: 2,
     fontStyle: 'italic',
-  },
-  candleIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-    marginTop: 2,
   },
   label: {
     fontSize: 16,

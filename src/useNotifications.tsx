@@ -1,90 +1,45 @@
-import { useEffect } from 'react';
-import { Datanames } from '../data/datanames';
-import { getMovableNamedayEntries } from '../data/movingCelebrations';
-import { worldDaysJanFeb } from '../data/worldday';
-import NotificationService from './NotificationService';
+import { useEffect, useCallback } from 'react';
+import NotificationService from './services/NotificationService';
 import { useAppContext } from './AppContext';
 import { useContacts } from './ContactsContext';
-
-const GREEK_MONTHS = [
-  'Ιανουάριος',
-  'Φεβρουάριος',
-  'Μάρτιος',
-  'Απρίλιος',
-  'Μάιος',
-  'Ιούνιος',
-  'Ιούλιος',
-  'Αύγουστος',
-  'Σεπτέμβριος',
-  'Οκτώβριος',
-  'Νοέμβριος',
-  'Δεκέμβριος',
-];
+import {
+  findNamedayLocal,
+  findWorldDayLocal,
+} from './services/namedayService';
 
 export const useNotifications = () => {
   const { notificationsEnabled, globalDaysEnabled } = useAppContext();
-  const { getContactsForNameday, getSchemaMembersForNameday } = useContacts();
+  const { getContactsForNameday, getMyPeopleForNameday } = useContacts();
 
-  useEffect(() => {
-    // Configure notifications
-    NotificationService.configure();
-  }, []);
-
-  useEffect(() => {
-    if (notificationsEnabled) {
-      scheduleDailyNotification();
-    } else {
-      NotificationService.cancelAllNotifications();
-    }
-  }, [notificationsEnabled]);
-
-  const getTodaysCelebrations = () => {
+  const getTodaysCelebrations = useCallback(() => {
     const today = new Date();
-    const day = today.getDate();
-    const monthIndex = today.getMonth();
-    const year = today.getFullYear();
-    const monthName = GREEK_MONTHS[monthIndex];
-
-    // Get names from Datanames
-    const entry = Datanames.find(e => e.day === day && e.month === monthName);
+    const entry = findNamedayLocal(today);
     const names = entry?.names || [];
     const celebrations = entry?.celebrations || [];
-
-    // Get movable feasts
-    const movableEntries = getMovableNamedayEntries(year);
-    const todayMovable = movableEntries.find(
-      e => e.day === day && e.month === monthName,
-    );
-    if (todayMovable) {
-      celebrations.push(...todayMovable.celebrations);
-    }
 
     // Get world days if enabled
     let worldDays: string[] = [];
     if (globalDaysEnabled) {
-      const todayDate = `${day} ${monthName}`;
-      const worldEntry = worldDaysJanFeb.find(e => e.date === todayDate);
-      if (worldEntry) {
-        worldDays = [worldEntry.title];
-      }
+      const wd = findWorldDayLocal(today);
+      if (wd) worldDays = [wd];
     }
 
     // Get contacts celebrating
     const contactsCelebrating = getContactsForNameday(names);
 
-    // Get schema members celebrating
-    const schemaMembersCelebrating = getSchemaMembersForNameday(names);
+    // Get my people celebrating
+    const myPeopleCelebrating = getMyPeopleForNameday(names);
 
     return {
       names,
       celebrations,
       worldDays,
       contactsCelebrating,
-      schemaMembersCelebrating,
+      myPeopleCelebrating,
     };
-  };
+  }, [globalDaysEnabled, getContactsForNameday, getMyPeopleForNameday]);
 
-  const scheduleDailyNotification = () => {
+  const scheduleDailyNotification = useCallback(() => {
     const data = getTodaysCelebrations();
 
     let title = '🎉 Σημερινές Γιορτές';
@@ -115,15 +70,15 @@ export const useNotifications = () => {
       }\n`;
     }
 
-    // Add schema members
-    if (data.schemaMembersCelebrating.length > 0) {
-      const memberNames = data.schemaMembersCelebrating
+    // Add my people celebrating
+    if (data.myPeopleCelebrating.length > 0) {
+      const memberNames = data.myPeopleCelebrating
         .slice(0, 3)
-        .map(m => m.name)
+        .map((m: any) => m.name)
         .join(', ');
-      message += `Μέλη σχημάτων: ${memberNames}${
-        data.schemaMembersCelebrating.length > 3
-          ? ` και ${data.schemaMembersCelebrating.length - 3} ακόμα`
+      message += `Δικοί μου άνθρωποι: ${memberNames}${
+        data.myPeopleCelebrating.length > 3
+          ? ` και ${data.myPeopleCelebrating.length - 3} ακόμα`
           : ''
       }`;
     }
@@ -137,7 +92,20 @@ export const useNotifications = () => {
         message.trim(),
       );
     }
-  };
+  }, [getTodaysCelebrations]);
+
+  useEffect(() => {
+    // Configure notifications
+    NotificationService.configure();
+  }, []);
+
+  useEffect(() => {
+    if (notificationsEnabled) {
+      scheduleDailyNotification();
+    } else {
+      NotificationService.cancelAllNotifications();
+    }
+  }, [notificationsEnabled, scheduleDailyNotification]);
 
   return {
     scheduleDailyNotification,

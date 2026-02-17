@@ -7,53 +7,17 @@ import {
   Linking,
   Alert,
 } from 'react-native';
+/* eslint-disable react-native/no-inline-styles */
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import React, { useState, useRef } from 'react';
-import { Datanames } from '../../data/datanames';
-import { getMovableNamedayEntries } from '../../data/movingCelebrations';
-import { worldDaysJanFeb } from '../../data/worldday';
 import { useAppContext } from '../AppContext';
 import { useContacts } from '../ContactsContext';
-
-const GREEK_MONTHS = [
-  'Ιανουάριος',
-  'Φεβρουάριος',
-  'Μάρτιος',
-  'Απρίλιος',
-  'Μάιος',
-  'Ιούνιος',
-  'Ιούλιος',
-  'Αύγουστος',
-  'Σεπτέμβριος',
-  'Οκτώβριος',
-  'Νοέμβριος',
-  'Δεκέμβριος',
-];
-
-const GREEK_MONTHS_GENITIVE = [
-  'Ιανουαρίου',
-  'Φεβρουαρίου',
-  'Μαρτίου',
-  'Απριλίου',
-  'Μαΐου',
-  'Ιουνίου',
-  'Ιουλίου',
-  'Αυγούστου',
-  'Σεπτεμβρίου',
-  'Οκτωβρίου',
-  'Νοεμβρίου',
-  'Δεκεμβρίου',
-];
-
-const GREEK_WEEKDAYS = [
-  'Κυριακή',
-  'Δευτέρα',
-  'Τρίτη',
-  'Τετάρτη',
-  'Πέμπτη',
-  'Παρασκευή',
-  'Σάββατο',
-];
+import {
+  GREEK_MONTHS,
+  GREEK_MONTHS_GENITIVE,
+  GREEK_WEEKDAYS,
+  getYearCelebrations,
+} from '../services/namedayService';
 
 const DayItem = React.memo(
   ({
@@ -69,7 +33,7 @@ const DayItem = React.memo(
     effectiveTextColor,
     backgroundColor,
     getContactsForNameday,
-    getSchemaMembersForNameday,
+    getMyPeopleForNameday,
     hasPermission,
   }: {
     day: number;
@@ -84,7 +48,7 @@ const DayItem = React.memo(
     effectiveTextColor?: string;
     backgroundColor?: string;
     getContactsForNameday: (names: string[]) => any[];
-    getSchemaMembersForNameday: (names: string[]) => any[];
+    getMyPeopleForNameday: (names: string[]) => any[];
     hasPermission: boolean;
   }) => {
     const [expanded, setExpanded] = useState(false);
@@ -95,8 +59,8 @@ const DayItem = React.memo(
         ? getContactsForNameday(names)
         : [];
 
-    const schemaMembers =
-      expanded && names.length > 0 ? getSchemaMembersForNameday(names) : [];
+    const myPeople =
+      expanded && names.length > 0 ? getMyPeopleForNameday(names) : [];
     const date = new Date(year, monthIndex, day);
     const weekdayName = GREEK_WEEKDAYS[date.getDay()];
     const dayFormatted = String(day).padStart(2, '0');
@@ -268,7 +232,7 @@ const DayItem = React.memo(
                 </View>
               </View>
             )}
-            {schemaMembers && schemaMembers.length > 0 && (
+            {myPeople && myPeople.length > 0 && (
               <View style={styles.celebrationsSection}>
                 <Text
                   style={[
@@ -277,10 +241,10 @@ const DayItem = React.memo(
                     { color: effectiveTextColor },
                   ]}
                 >
-                  Μέλη σχημάτων που γιορτάζουν:
+                  Δικοί μου άνθρωποι (εορτολόγιο):
                 </Text>
                 <View style={styles.contactsRow}>
-                  {schemaMembers.map((member: any) => (
+                  {myPeople.map((member: any) => (
                     <TouchableOpacity
                       key={member.id}
                       style={styles.contactItem}
@@ -311,7 +275,7 @@ const DayItem = React.memo(
                         ];
                         Alert.alert(
                           member.name,
-                          `${member.schemaName} • ${member.relation}`,
+                          `${member.relation}`,
                           buttons,
                           { cancelable: true },
                         );
@@ -353,99 +317,44 @@ const DayItem = React.memo(
 
 export const TotalCelebrationsScreen = () => {
   const {
-    globalDaysEnabled,
     darkModeEnabled,
     selectedYear,
     backgroundColor,
     effectiveTextColor,
   } = useAppContext();
-  const { hasPermission, getContactsForNameday, getSchemaMembersForNameday } =
+  const { hasPermission, getContactsForNameday, getMyPeopleForNameday } =
     useContacts();
-  const now = new Date();
+  const now = React.useMemo(() => new Date(), []);
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
   );
   const lastScrollTime = useRef(0);
   const scrollDelay = 300; // milliseconds
 
-  // Calculate the month to display
-  const displayDate = new Date(selectedYear, displayMonthIndex, 1);
-  const displayYear = displayDate.getFullYear();
+  // Use memoized year data
+  const yearData = React.useMemo(() => {
+    return getYearCelebrations(selectedYear || now.getFullYear());
+  }, [selectedYear, now]);
+
+  // Filter for the current display month
+  const daysData = React.useMemo(() => {
+    return yearData.filter(d => d.monthIndex === displayMonthIndex);
+  }, [yearData, displayMonthIndex]);
+
   const monthName = GREEK_MONTHS[displayMonthIndex];
-
-  // Get all celebrations for the display month
-  const monthData = Datanames.filter(entry => entry.month === monthName);
-  const movingEntries = getMovableNamedayEntries(displayYear).filter(
-    e => e.month === monthName,
-  );
-
-  // Create a map for quick lookup
-  const celebrationsByDay: Record<number, string[]> = {};
-  monthData.forEach(entry => {
-    if (!celebrationsByDay[entry.day]) {
-      celebrationsByDay[entry.day] = [];
-    }
-    celebrationsByDay[entry.day].push(...(entry.celebrations || []));
-  });
-  // Include movable feasts celebrations
-  movingEntries.forEach(entry => {
-    if (!celebrationsByDay[entry.day]) {
-      celebrationsByDay[entry.day] = [];
-    }
-    celebrationsByDay[entry.day].push(...(entry.celebrations || []));
-  });
-
-  // Find world days for the display month
-  const findWorldDaysForDay = (
-    dayNum: number,
-    displayMonthName: string,
-  ): string[] => {
-    if (!globalDaysEnabled) return [];
-    const dayString = `${dayNum} ${displayMonthName}`;
-    return worldDaysJanFeb
-      .filter(wd => wd.date === dayString || wd.date.includes(dayString))
-      .map(wd => wd.title);
-  };
-
-  // Get the last day of the display month
-  const lastDay = new Date(displayYear, displayMonthIndex + 1, 0).getDate();
-
-  // Check if today is in the display month
-  const isCurrentMonth =
-    displayMonthIndex === now.getMonth() && displayYear === now.getFullYear();
-  const today = now.getDate();
-
-  // Create list of days (contacts loaded on-demand when expanded)
-  const daysData = Array.from({ length: lastDay }, (_, i) => {
-    const dayNum = i + 1;
-    const dayEntry = Datanames.find(
-      entry => entry.month === monthName && entry.day === dayNum,
-    );
-    const movingEntry = movingEntries.find(e => e.day === dayNum);
-    const allNames = [
-      ...(dayEntry?.names || []),
-      ...(movingEntry?.names || []),
-    ];
-    return {
-      day: dayNum,
-      celebrations: celebrationsByDay[dayNum] || [],
-      names: allNames,
-      worldDays: findWorldDaysForDay(dayNum, monthName),
-      isToday: isCurrentMonth && dayNum === today,
-    };
-  });
+  const displayYear = selectedYear || now.getFullYear();
 
   const handlePrevMonth = () => {
-    const now = Date.now();
-    if (now - lastScrollTime.current < scrollDelay) return;
-    lastScrollTime.current = now;
+    const currentTime = Date.now();
+    if (currentTime - lastScrollTime.current < scrollDelay) return;
+    lastScrollTime.current = currentTime;
     setDisplayMonthIndex(prev => (prev - 1 < 0 ? 0 : prev - 1));
   };
 
   const handleNextMonth = () => {
-    const now = Date.now();
-    if (now - lastScrollTime.current < scrollDelay) return;
-    lastScrollTime.current = now;
+    const currentTime = Date.now();
+    if (currentTime - lastScrollTime.current < scrollDelay) return;
+    lastScrollTime.current = currentTime;
     setDisplayMonthIndex(prev => (prev + 1 > 11 ? 11 : prev + 1));
   };
 
@@ -517,7 +426,7 @@ export const TotalCelebrationsScreen = () => {
             effectiveTextColor={effectiveTextColor}
             backgroundColor={backgroundColor}
             getContactsForNameday={getContactsForNameday}
-            getSchemaMembersForNameday={getSchemaMembersForNameday}
+            getMyPeopleForNameday={getMyPeopleForNameday}
             hasPermission={hasPermission}
           />
         )}
@@ -667,7 +576,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     color: '#1E6AC7',
   },
-  schemaMemberItem: {
+  myPeopleMemberItem: {
     flexDirection: 'column',
     backgroundColor: '#F3F4F6',
     paddingVertical: 6,
@@ -676,7 +585,7 @@ const styles = StyleSheet.create({
     marginRight: 5,
     marginBottom: 4,
   },
-  schemaLabel: {
+  myPeopleLabel: {
     fontSize: 10,
     marginTop: 2,
     fontStyle: 'italic',

@@ -15,6 +15,7 @@ import {
   getMovingFeastForDate,
 } from '../../data/movingCelebrations';
 import { useAppContext } from '../AppContext';
+import { normalizeGreekName } from '../utils/greekUtils';
 
 type Props = {
   onBack: () => void;
@@ -35,9 +36,6 @@ export function SearchScreen({ onBack }: Props) {
   >([]);
   const [message, setMessage] = useState<string | null>(null);
 
-  const normalize = (s: string) =>
-    s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-
   const findName = () => {
     const q = query.trim();
     if (!q) {
@@ -45,7 +43,7 @@ export function SearchScreen({ onBack }: Props) {
       setResults([]);
       return;
     }
-    const qLower = normalize(q);
+    const qLower = normalizeGreekName(q);
     setNormalizedQuery(qLower);
     const found: Array<{
       day: number;
@@ -58,7 +56,7 @@ export function SearchScreen({ onBack }: Props) {
     for (const entry of Datanames) {
       if (
         entry.names &&
-        entry.names.some((n: string) => normalize(n) === qLower)
+        entry.names.some((n: string) => normalizeGreekName(n) === qLower)
       ) {
         found.push({
           day: entry.day,
@@ -74,7 +72,10 @@ export function SearchScreen({ onBack }: Props) {
       selectedYear || new Date().getFullYear(),
     );
     for (const me of moving) {
-      if (me.names && me.names.some((n: string) => normalize(n) === qLower)) {
+      if (
+        me.names &&
+        me.names.some((n: string) => normalizeGreekName(n) === qLower)
+      ) {
         found.push({
           day: me.day,
           month: me.month,

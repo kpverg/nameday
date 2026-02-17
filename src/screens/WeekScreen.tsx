@@ -9,50 +9,12 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useState, useEffect } from 'react';
-import { Datanames } from '../../data/datanames';
-import { worldDaysJanFeb } from '../../data/worldday';
 import { useAppContext } from '../AppContext';
 import { useContacts } from '../ContactsContext';
-
-const GREEK_MONTHS = [
-  'Ιανουάριος',
-  'Φεβρουάριος',
-  'Μάρτιος',
-  'Απρίλιος',
-  'Μάιος',
-  'Ιούνιος',
-  'Ιούλιος',
-  'Αύγουστος',
-  'Σεπτέμβριος',
-  'Οκτώβριος',
-  'Νοέμβριος',
-  'Δεκέμβριος',
-];
-
-const GREEK_MONTHS_GENITIVE = [
-  'Ιανουαρίου',
-  'Φεβρουαρίου',
-  'Μαρτίου',
-  'Απριλίου',
-  'Μαΐου',
-  'Ιουνίου',
-  'Ιουλίου',
-  'Αυγούστου',
-  'Σεπτεμβρίου',
-  'Οκτωβρίου',
-  'Νοεμβρίου',
-  'Δεκεμβρίου',
-];
-
-const GREEK_WEEKDAYS = [
-  'Κυριακή',
-  'Δευτέρα',
-  'Τρίτη',
-  'Τετάρτη',
-  'Πέμπτη',
-  'Παρασκευή',
-  'Σάββατο',
-];
+import {
+  GREEK_MONTHS_GENITIVE,
+  getWeekCelebrations,
+} from '../services/namedayService';
 
 interface DayInfo {
   weekday: string;
@@ -64,7 +26,7 @@ interface DayInfo {
   worldDays: string[];
   isToday: boolean;
   contacts: any[];
-  schemaMembers: any[];
+  myPeople: any[];
 }
 
 const DayCard = ({
@@ -239,7 +201,7 @@ const DayCard = ({
       </View>
     )}
 
-    {item.schemaMembers && item.schemaMembers.length > 0 && (
+    {item.myPeople && item.myPeople.length > 0 && (
       <View style={styles.section}>
         <Text
           style={[
@@ -248,10 +210,10 @@ const DayCard = ({
             { color: effectiveTextColor },
           ]}
         >
-          Μέλη σχημάτων που γιορτάζουν:
+          Δικοί μου άνθρωποι (εορτολόγιο):
         </Text>
         <View style={styles.contactsRow}>
-          {item.schemaMembers.map((member: any) => (
+          {item.myPeople.map((member: any) => (
             <TouchableOpacity
               key={member.id}
               style={styles.contactItem}
@@ -273,12 +235,12 @@ const DayCard = ({
                     : []),
                   {
                     text: 'Κλείσιμο',
-                    style: 'cancel',
+                    style: 'cancel' as any,
                   },
                 ];
                 Alert.alert(
                   member.name,
-                  `${member.schemaName} • ${member.relation}`,
+                  `${member.relation}`,
                   buttons,
                   { cancelable: true },
                 );
@@ -313,70 +275,42 @@ export const WeekScreen = () => {
     darkModeEnabled,
     backgroundColor,
     effectiveTextColor,
+    selectedYear,
   } = useAppContext();
-  const { hasPermission, getContactsForNameday, getSchemaMembersForNameday } =
+  const { hasPermission, getContactsForNameday, getMyPeopleForNameday } =
     useContacts();
   const [weekData, setWeekData] = useState<DayInfo[]>([]);
 
   useEffect(() => {
     const today = new Date();
-    const todayYear = today.getFullYear();
-    const todayMonth = today.getMonth();
-    const todayDay = today.getDate();
-    const weekDays: DayInfo[] = [];
+    const celebrations = getWeekCelebrations(
+      today,
+      selectedYear || today.getFullYear(),
+      globalDaysEnabled,
+    );
 
-    const findWorldDaysForDate = (dt: Date): string[] => {
-      const monthName = GREEK_MONTHS[dt.getMonth()];
-      const dayNum = dt.getDate();
-      const dayString = `${dayNum} ${monthName}`;
-      return worldDaysJanFeb
-        .filter(wd => wd.date === dayString || wd.date.includes(dayString))
-        .map(wd => wd.title);
-    };
-
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() + i);
-
-      const monthName = GREEK_MONTHS[date.getMonth()];
-      const dayNum = date.getDate();
-      const weekday = GREEK_WEEKDAYS[date.getDay()];
-      const monthGenitive = GREEK_MONTHS_GENITIVE[date.getMonth()];
-
-      const entry = Datanames.find(
-        e => e.month === monthName && e.day === dayNum,
-      );
-
-      const worldDays = globalDaysEnabled ? findWorldDaysForDate(date) : [];
-      const names = entry?.names ?? [];
-      const contactsCelebrating =
-        hasPermission && names.length > 0 ? getContactsForNameday(names) : [];
-      const schemaMembersCelebrating =
-        names.length > 0 ? getSchemaMembersForNameday(names) : [];
-
-      weekDays.push({
-        weekday,
-        date: `${String(dayNum).padStart(2, '0')} ${monthGenitive}`,
-        day: dayNum,
-        month: monthName,
-        names,
-        celebrations: entry?.celebrations ?? [],
-        worldDays,
-        contacts: contactsCelebrating,
-        schemaMembers: schemaMembersCelebrating,
-        isToday:
-          date.getFullYear() === todayYear &&
-          date.getMonth() === todayMonth &&
-          date.getDate() === todayDay,
-      });
-    }
+    const weekDays: DayInfo[] = celebrations.map(c => {
+      const monthGenitive = GREEK_MONTHS_GENITIVE[c.monthIndex];
+      return {
+        ...c,
+        date: `${String(c.day).padStart(2, '0')} ${monthGenitive}`,
+        month: '', // Not used in view
+        contacts:
+          hasPermission && c.names.length > 0
+            ? getContactsForNameday(c.names)
+            : [],
+        myPeople:
+          c.names.length > 0 ? getMyPeopleForNameday(c.names) : [],
+      };
+    });
 
     setWeekData(weekDays);
   }, [
     globalDaysEnabled,
     hasPermission,
     getContactsForNameday,
-    getSchemaMembersForNameday,
+    getMyPeopleForNameday,
+    selectedYear,
   ]);
 
   return (
@@ -514,10 +448,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  schemaMemberInfo: {
+  myPeopleMemberInfo: {
     flexDirection: 'column',
   },
-  schemaLabel: {
+  myPeopleLabel: {
     fontSize: 11,
     marginTop: 2,
     fontStyle: 'italic',
