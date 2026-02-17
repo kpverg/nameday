@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 /* eslint-disable react-native/no-inline-styles */
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
 import { useContacts } from '../ContactsContext';
 import {
@@ -328,6 +328,7 @@ export const TotalCelebrationsScreen = () => {
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
   );
+  const flatListRef = useRef<FlatList>(null);
   const lastScrollTime = useRef(0);
   const scrollDelay = 300; // milliseconds
 
@@ -340,6 +341,35 @@ export const TotalCelebrationsScreen = () => {
   const daysData = React.useMemo(() => {
     return yearData.filter(d => d.monthIndex === displayMonthIndex);
   }, [yearData, displayMonthIndex]);
+
+  // Effect to scroll to today when the screen opens or the month changes to current month
+  useEffect(() => {
+    const isCurrentMonth = displayMonthIndex === now.getMonth();
+    const isCurrentYear = (selectedYear || now.getFullYear()) === now.getFullYear();
+    
+    if (isCurrentMonth && isCurrentYear && daysData.length > 0) {
+      const todayIndex = daysData.findIndex(d => d.day === now.getDate());
+      if (todayIndex !== -1) {
+        // Jump immediately to today without animation
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: todayIndex,
+            animated: false,
+            viewPosition: 0, // 0 = top of index
+          });
+        }, 50);
+      }
+    } else if (daysData.length > 0) {
+      // For any other month, jump to the start of the month
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index: 0,
+          animated: false,
+          viewPosition: 0,
+        });
+      }, 50);
+    }
+  }, [displayMonthIndex, selectedYear, daysData, now]);
 
   const monthName = GREEK_MONTHS[displayMonthIndex];
   const displayYear = selectedYear || now.getFullYear();
@@ -411,6 +441,7 @@ export const TotalCelebrationsScreen = () => {
         </TouchableOpacity>
       </View>
       <FlatList
+        ref={flatListRef}
         data={daysData}
         renderItem={({ item }) => (
           <DayItem
@@ -432,8 +463,19 @@ export const TotalCelebrationsScreen = () => {
         )}
         keyExtractor={item => String(item.day)}
         scrollEnabled={true}
-        initialNumToRender={7}
-        maxToRenderPerBatch={5}
+        initialNumToRender={31}
+        getItemLayout={(data, index) => ({
+          length: 60, // approximate height of a DayItem (collapsed)
+          offset: 60 * index,
+          index,
+        })}
+        onScrollToIndexFailed={info => {
+          flatListRef.current?.scrollToOffset({
+            offset: info.averageItemLength * info.index,
+            animated: false,
+          });
+        }}
+        maxToRenderPerBatch={10}
         windowSize={10}
         removeClippedSubviews={true}
         updateCellsBatchingPeriod={50}

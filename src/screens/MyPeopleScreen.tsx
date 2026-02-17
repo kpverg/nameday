@@ -14,11 +14,10 @@ import {
   Pressable,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../services/localPaths';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useContacts } from '../ContactsContext';
 import { useAppContext } from '../AppContext';
-
-const MY_PEOPLE_STORAGE_KEY = '@nameday_schemas';
 
 export default function MyPeopleScreen() {
   const { searchContactsByGreeklish, refreshMyPeople } = useContacts();
@@ -54,7 +53,7 @@ export default function MyPeopleScreen() {
 
   const loadGroups = async () => {
     try {
-      const stored = await AsyncStorage.getItem(MY_PEOPLE_STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.MY_PEOPLE);
       if (stored) {
         const parsed = JSON.parse(stored);
         console.log(
@@ -75,7 +74,7 @@ export default function MyPeopleScreen() {
         savedPeopleGroups.length,
       );
       await AsyncStorage.setItem(
-        MY_PEOPLE_STORAGE_KEY,
+        STORAGE_KEYS.MY_PEOPLE,
         JSON.stringify(savedPeopleGroups),
       );
       console.log('[MyPeopleScreen] Groups saved successfully');

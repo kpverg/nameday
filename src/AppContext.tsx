@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from './services/localPaths';
 
 type BackgroundTone =
   | 'white'
@@ -36,15 +37,6 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
-const STORAGE_KEYS = {
-  GLOBAL_DAYS: 'app_global_days_enabled',
-  DARK_MODE: 'app_dark_mode_enabled',
-  NOTIFICATIONS: 'app_notifications_enabled',
-  BACKGROUND_TONE: 'app_background_tone',
-  TEXT_TONE: 'app_text_tone',
-  SELECTED_YEAR: 'app_selected_year',
-};
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [globalDaysEnabled, setGlobalDaysEnabledState] = useState(false);

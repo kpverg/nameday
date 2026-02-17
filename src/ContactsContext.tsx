@@ -19,6 +19,7 @@ import {
   normalizeGreekName,
   namesMatch,
 } from './utils/greekUtils';
+import { STORAGE_KEYS } from './services/localPaths';
 
 interface Contact {
   recordID: string;
@@ -51,8 +52,6 @@ interface ContactsContextType {
   myPeople: MyPerson[];
 }
 
-const MY_PEOPLE_STORAGE_KEY = '@nameday_schemas';
-
 const ContactsContext = createContext<ContactsContextType | undefined>(
   undefined,
 );
@@ -65,7 +64,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   // Load My People groups and extract members
   const loadMyPeople = async () => {
     try {
-      const stored = await AsyncStorage.getItem(MY_PEOPLE_STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.MY_PEOPLE);
       console.log(
         '[ContactsContext] Loading My People from storage:',
         stored ? 'found' : 'empty',

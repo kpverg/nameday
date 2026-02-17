@@ -9,13 +9,9 @@ import {
   ScrollView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { Datanames } from '../../data/datanames';
-import {
-  getMovableNamedayEntries,
-  getMovingFeastForDate,
-} from '../../data/movingCelebrations';
 import { useAppContext } from '../AppContext';
 import { normalizeGreekName } from '../utils/greekUtils';
+import { searchNames, SearchResult } from '../services/searchService';
 
 type Props = {
   onBack: () => void;
@@ -26,103 +22,20 @@ export function SearchScreen({ onBack }: Props) {
     useAppContext();
   const [query, setQuery] = useState('');
   const [normalizedQuery, setNormalizedQuery] = useState('');
-  const [results, setResults] = useState<
-    Array<{
-      day: number;
-      month: string;
-      names?: string[];
-      celebrations?: string[];
-    }>
-  >([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   const findName = () => {
-    const q = query.trim();
-    if (!q) {
-      setMessage('Γράψτε ένα όνομα.');
-      setResults([]);
-      return;
-    }
-    const qLower = normalizeGreekName(q);
+    const qLower = normalizeGreekName(query);
     setNormalizedQuery(qLower);
-    const found: Array<{
-      day: number;
-      month: string;
-      names?: string[];
-      celebrations?: string[];
-    }> = [];
 
-    // Search static data
-    for (const entry of Datanames) {
-      if (
-        entry.names &&
-        entry.names.some((n: string) => normalizeGreekName(n) === qLower)
-      ) {
-        found.push({
-          day: entry.day,
-          month: entry.month,
-          names: entry.names,
-          celebrations: entry.celebrations,
-        });
-      }
-    }
-
-    // Search movable nameday entries for selected year
-    const moving = getMovableNamedayEntries(
-      selectedYear || new Date().getFullYear(),
+    const { results: searchResults, message: searchMessage } = searchNames(
+      query,
+      selectedYear,
     );
-    for (const me of moving) {
-      if (
-        me.names &&
-        me.names.some((n: string) => normalizeGreekName(n) === qLower)
-      ) {
-        found.push({
-          day: me.day,
-          month: me.month,
-          names: me.names,
-          celebrations: me.celebrations,
-        });
-      }
-    }
 
-    if (found.length === 0) {
-      setMessage('Δεν βρέθηκε το όνομα.');
-      setResults([]);
-    } else {
-      // Augment each found entry with any movable feast that falls on that date
-      const augmented = found.map(f => {
-        const GREEK_MONTHS = [
-          'Ιανουάριος',
-          'Φεβρουάριος',
-          'Μάρτιος',
-          'Απρίλιος',
-          'Μάιος',
-          'Ιούνιος',
-          'Ιούλιος',
-          'Αύγουστος',
-          'Σεπτέμβριος',
-          'Οκτώβριος',
-          'Νοέμβριος',
-          'Δεκέμβριος',
-        ];
-        const monthIndex = GREEK_MONTHS.indexOf(f.month);
-        const year = selectedYear || new Date().getFullYear();
-        const dateObj =
-          monthIndex >= 0
-            ? new Date(year, monthIndex, f.day)
-            : new Date(year, 0, f.day);
-        const movingName = getMovingFeastForDate(dateObj);
-        const celebrations = Array.isArray(f.celebrations)
-          ? [...f.celebrations]
-          : [];
-        if (movingName && !celebrations.includes(movingName))
-          celebrations.push(movingName);
-        return { ...f, celebrations };
-      });
-
-      setMessage(null);
-      setResults(augmented);
-    }
+    setResults(searchResults);
+    setMessage(searchMessage);
   };
 
   return (
@@ -195,46 +108,56 @@ export function SearchScreen({ onBack }: Props) {
             return (
               <View
                 key={`${r.month}-${r.day}-${idx}`}
-                style={styles.resultItem}
+                style={[
+                  styles.resultItem,
+                  { borderBottomColor: darkModeEnabled ? '#374151' : '#F3F4F6' }
+                ]}
               >
+                {/* 1. Ημερομηνία πρώτη */}
                 <Text
                   style={[styles.resultText, { color: effectiveTextColor }]}
                 >{`${weekday}, ${r.day} ${r.month}`}</Text>
-                {r.names && r.names.length > 0 && (
-                  <Text
-                    style={[styles.namesLine, { color: effectiveTextColor }]}
-                  >
-                    {r.names.map((n, i) => {
-                      const isMatch = normalize(n) === normalizedQuery;
-                      return (
-                        <Text
-                          key={i}
-                          style={isMatch ? styles.nameMatch : undefined}
-                        >
-                          {n}
-                          {i < r.names!.length - 1 ? ', ' : ''}
-                        </Text>
-                      );
-                    })}
-                  </Text>
-                )}
+
+                {/* 2. Εορτές σήμερα */}
                 {r.celebrations && r.celebrations.length > 0 && (
                   <View style={styles.celebrationBlock}>
                     <Text
                       style={[
-                        styles.celebrationLabel,
-                        { color: effectiveTextColor },
+                        styles.celebrationText,
+                        { color: darkModeEnabled ? '#9CA3AF' : '#4B5563' },
                       ]}
                     >
-                      Εορτές σήμερα:
+                      Γιορτή: {r.celebrations.join(', ')}
                     </Text>
+                  </View>
+                )}
+
+                {/* 3. Ονόματα (με μπλε το όνομα που γράψαμε) */}
+                {r.names && r.names.length > 0 && (
+                  <View style={{ marginTop: 8 }}>
                     <Text
                       style={[
-                        styles.celebrationText,
-                        { color: effectiveTextColor },
+                        styles.celebrationLabel,
+                        { color: effectiveTextColor, fontSize: 13 },
                       ]}
                     >
-                      {r.celebrations.join(', ')}
+                      Ονόματα που γιορτάζουν σήμερα:
+                    </Text>
+                    <Text
+                      style={[styles.namesLine, { color: effectiveTextColor, marginTop: 4 }]}
+                    >
+                      {r.names.map((n, i) => {
+                        const isMatch = normalizeGreekName(n) === normalizedQuery;
+                        return (
+                          <Text
+                            key={i}
+                            style={isMatch ? [styles.nameMatch, { color: '#2563EB', fontWeight: 'bold' }] : undefined}
+                          >
+                            {n}
+                            {i < r.names!.length - 1 ? ', ' : ''}
+                          </Text>
+                        );
+                      })}
                     </Text>
                   </View>
                 )}
@@ -248,7 +171,7 @@ export function SearchScreen({ onBack }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -260,36 +183,34 @@ const styles = StyleSheet.create({
   },
   backButton: { marginRight: 8 },
   title: { fontSize: 18, fontWeight: '600' },
-  body: { padding: 16 },
+  body: { padding: 16, flex: 1 },
   input: {
     height: 44,
-    borderColor: '#D1D5DB',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
     marginBottom: 12,
   },
   findButton: { marginBottom: 12 },
-  message: { color: '#6B7280', marginBottom: 8 },
-  results: { marginTop: 8 },
+  message: { fontSize: 14, marginBottom: 8 },
+  results: { flex: 1, marginTop: 8 },
   resultItem: {
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   resultText: { fontSize: 16, fontWeight: '600' },
   namesList: { marginTop: 6, marginBottom: 6 },
-  nameItem: { fontSize: 14, color: '#111827' },
-  namesLine: { marginTop: 6, marginBottom: 6, fontSize: 14, color: '#111827' },
+  nameItem: { fontSize: 14 },
+  namesLine: { marginTop: 6, marginBottom: 6, fontSize: 14 },
   celebrationBlock: { marginTop: 6 },
-  celebrationLabel: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  celebrationLabel: { fontSize: 14, fontWeight: '700' },
   celebrationText: {
     fontSize: 14,
-    color: '#374151',
     marginTop: 4,
     fontWeight: '700',
   },
-  nameMatch: { fontWeight: '700' },
+  nameMatch: { fontWeight: '700', color: '#EF4444' },
 });
 
 export default SearchScreen;
