@@ -19,8 +19,17 @@ import {
   findWorldDayLocal,
   formatDate,
 } from '../services/namedayService';
+import {
+  getMyPeopleCelebratingOnDate,
+  formatMyPersonCelebration,
+} from '../services/myPeopleCelebrationService';
 
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import {
+  GestureHandlerRootView,
+  FlingGestureHandler,
+  Directions,
+  State,
+} from 'react-native-gesture-handler';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -31,6 +40,7 @@ import { WeekScreen } from './WeekScreen';
 import MyPeopleScreen from './MyPeopleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import SearchScreen from './SearchScreen';
+import { SCROLL_DELAYS } from '../utils/scrollchangingscreens';
 
 function DayScreenContent() {
   const {
@@ -44,6 +54,7 @@ function DayScreenContent() {
     requestPermission,
     getContactsForNameday,
     getMyPeopleForNameday,
+    myPeople,
   } = useContacts();
 
   const [dateString, setDateString] = useState(formatDate(new Date()));
@@ -77,14 +88,18 @@ function DayScreenContent() {
       }
 
       // Get my people celebrating today
-      if (names.length > 0) {
-        console.log('[MainScreen] Calling getMyPeopleForNameday with:', names);
-        const members = getMyPeopleForNameday(names);
-        console.log('[MainScreen] Got my people members:', members.length);
-        setMyPeopleCelebrating(members);
-      } else {
-        setMyPeopleCelebrating([]);
-      }
+      const namedayMembers = names.length > 0 ? getMyPeopleForNameday(names) : [];
+      const customDateMembers = getMyPeopleCelebratingOnDate(now, myPeople);
+      
+      // Merge and remove duplicates by ID
+      const allMyPeople = [...namedayMembers];
+      customDateMembers.forEach(cdm => {
+        if (!allMyPeople.find(amp => amp.id === cdm.id)) {
+          allMyPeople.push(cdm);
+        }
+      });
+
+      setMyPeopleCelebrating(allMyPeople);
     };
     const scheduleNext = () => {
       const now = new Date();
@@ -112,6 +127,7 @@ function DayScreenContent() {
     hasPermission,
     getContactsForNameday,
     getMyPeopleForNameday,
+    myPeople,
   ]);
 
   return (
@@ -374,9 +390,10 @@ function DayScreenContent() {
                           style: 'cancel' as 'cancel',
                         },
                       ];
+                      const fullName = formatMyPersonCelebration(member);
                       Alert.alert(
-                        member.name,
-                        `${member.name} • ${member.relation}`,
+                        fullName,
+                        'Επιλέξτε ενέργεια:',
                         buttons,
                         { cancelable: true },
                       );
@@ -389,8 +406,28 @@ function DayScreenContent() {
                         { color: effectiveTextColor },
                       ]}
                     >
-                      {member.name}
+                      {formatMyPersonCelebration(member)}
                     </Text>
+                    {member.phoneNumber && (
+                      <View style={styles.contactActions}>
+                        <TouchableOpacity
+                          onPress={() =>
+                            Linking.openURL(`tel:${member.phoneNumber}`)
+                          }
+                          style={styles.actionButton}
+                        >
+                          <Ionicons name="call" size={16} color="#10B981" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() =>
+                            Linking.openURL(`sms:${member.phoneNumber}`)
+                          }
+                          style={styles.actionButton}
+                        >
+                          <Ionicons name="mail" size={16} color="#3B82F6" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -502,7 +539,30 @@ export default function MainScreen() {
     setSelectedYear(year);
     setShowYearPicker(false);
   };
-  [];
+
+  const screens = useMemo<('day' | 'month' | 'week' | 'close' | 'settings')[]>(
+    () => ['day', 'month', 'week', 'close', 'settings'],
+    [],
+  );
+
+  const navigateToNext = () => {
+    const currentIndex = screens.indexOf(currentScreen as any);
+    if (currentIndex < screens.length - 1) {
+      setTimeout(() => {
+        setCurrentScreen(screens[currentIndex + 1]);
+      }, SCROLL_DELAYS.SHORT);
+    }
+  };
+
+  const navigateToPrev = () => {
+    const currentIndex = screens.indexOf(currentScreen as any);
+    if (currentIndex > 0) {
+      setTimeout(() => {
+        setCurrentScreen(screens[currentIndex - 1]);
+      }, SCROLL_DELAYS.SHORT);
+    }
+  };
+
   useEffect(() => {
     setShowYearPicker(false);
   }, [currentScreen]);
@@ -540,14 +600,34 @@ export default function MainScreen() {
             onSelectYear={handleSelectYear}
             onSearch={() => setCurrentScreen('search')}
           />
-          <View
-            style={[
-              styles.contentArea,
-              darkModeEnabled && styles.contentAreaDark,
-            ]}
+          <FlingGestureHandler
+            direction={Directions.LEFT}
+            onHandlerStateChange={({ nativeEvent }) => {
+              if (nativeEvent.state === State.ACTIVE) {
+                navigateToNext();
+              }
+            }}
           >
-            {renderCurrent()}
-          </View>
+            <View style={{ flex: 1 }}>
+              <FlingGestureHandler
+                direction={Directions.RIGHT}
+                onHandlerStateChange={({ nativeEvent }) => {
+                  if (nativeEvent.state === State.ACTIVE) {
+                    navigateToPrev();
+                  }
+                }}
+              >
+                <View
+                  style={[
+                    styles.contentArea,
+                    darkModeEnabled && styles.contentAreaDark,
+                  ]}
+                >
+                  {renderCurrent()}
+                </View>
+              </FlingGestureHandler>
+            </View>
+          </FlingGestureHandler>
           <View
             style={[
               styles.bottomNav,

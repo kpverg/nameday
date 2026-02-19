@@ -151,6 +151,7 @@ export const getWeekCelebrations = (
   startDate: Date,
   selectedYear: number,
   globalDaysEnabled: boolean,
+  numDays: number = 7,
 ): DayCelebrations[] => {
   const result: DayCelebrations[] = [];
   const today = new Date();
@@ -160,7 +161,7 @@ export const getWeekCelebrations = (
 
   const movingEntries = getMovableNamedayEntries(selectedYear);
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < numDays; i++) {
     const dt = new Date(startDate);
     dt.setDate(startDate.getDate() + i);
 

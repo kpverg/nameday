@@ -86,6 +86,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
             allMembers.push({
               ...member,
               groupName: group.name,
+              assocName: group.assocName,
               isFromMyPeople: true,
               phoneNumber: group.contactPhoneNumber || null,
             });

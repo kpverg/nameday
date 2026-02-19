@@ -18,6 +18,10 @@ import {
   GREEK_WEEKDAYS,
   getYearCelebrations,
 } from '../services/namedayService';
+import {
+  getMyPeopleCelebratingOnDate,
+  formatMyPersonCelebration,
+} from '../services/myPeopleCelebrationService';
 
 const DayItem = React.memo(
   ({
@@ -35,6 +39,7 @@ const DayItem = React.memo(
     getContactsForNameday,
     getMyPeopleForNameday,
     hasPermission,
+    myPeopleData,
   }: {
     day: number;
     celebrations: string[];
@@ -50,6 +55,7 @@ const DayItem = React.memo(
     getContactsForNameday: (names: string[]) => any[];
     getMyPeopleForNameday: (names: string[]) => any[];
     hasPermission: boolean;
+    myPeopleData: any[];
   }) => {
     const [expanded, setExpanded] = useState(false);
 
@@ -59,9 +65,25 @@ const DayItem = React.memo(
         ? getContactsForNameday(names)
         : [];
 
-    const myPeople =
-      expanded && names.length > 0 ? getMyPeopleForNameday(names) : [];
-    const date = new Date(year, monthIndex, day);
+    const date = React.useMemo(() => new Date(year, monthIndex, day), [year, monthIndex, day]);
+    
+    // Memoize myPeople logic to avoid re-calculation on render
+    const myPeople = React.useMemo(() => {
+        if (!expanded) return [];
+        // From nameday
+        const namedayMembers = names.length > 0 ? getMyPeopleForNameday(names) : [];
+        // From custom date
+        const customMembers = getMyPeopleCelebratingOnDate(date, myPeopleData);
+        
+        const merged = [...namedayMembers];
+        customMembers.forEach(cm => {
+            if (!merged.find(m => m.id === cm.id)) {
+                merged.push(cm);
+            }
+        });
+        return merged;
+    }, [expanded, names, date, myPeopleData, getMyPeopleForNameday]);
+
     const weekdayName = GREEK_WEEKDAYS[date.getDay()];
     const dayFormatted = String(day).padStart(2, '0');
 
@@ -186,9 +208,10 @@ const DayItem = React.memo(
                   Επαφές που γιορτάζουν:
                 </Text>
                 <View style={styles.contactsRow}>
-                  {contacts.map((contact, index) => (
+                  {contacts.map((contact, _index) => (
                     <TouchableOpacity
                       key={contact.recordID}
+                      style={styles.contactItem}
                       onPress={() => {
                         if (
                           !contact.phoneNumbers ||
@@ -215,7 +238,6 @@ const DayItem = React.memo(
                           { text: 'Ακύρωση', style: 'cancel' },
                         ]);
                       }}
-                      style={styles.contactNameButton}
                     >
                       <Text
                         style={[
@@ -225,8 +247,27 @@ const DayItem = React.memo(
                         ]}
                       >
                         {contact.displayName}
-                        {index < contacts.length - 1 ? ', ' : ''}
                       </Text>
+                      {contact.phoneNumbers && contact.phoneNumbers.length > 0 && (
+                        <View style={styles.contactActions}>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Linking.openURL(`tel:${contact.phoneNumbers[0].number}`)
+                            }
+                            style={styles.actionButton}
+                          >
+                            <Ionicons name="call" size={14} color="#10B981" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Linking.openURL(`sms:${contact.phoneNumbers[0].number}`)
+                            }
+                            style={styles.actionButton}
+                          >
+                            <Ionicons name="mail" size={14} color="#3B82F6" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -273,9 +314,10 @@ const DayItem = React.memo(
                             style: 'cancel' as 'cancel',
                           },
                         ];
+                        const fullName = formatMyPersonCelebration(member);
                         Alert.alert(
-                          member.name,
-                          `${member.relation}`,
+                          fullName,
+                          'Επιλέξτε ενέργεια:',
                           buttons,
                           { cancelable: true },
                         );
@@ -288,8 +330,28 @@ const DayItem = React.memo(
                           { color: effectiveTextColor },
                         ]}
                       >
-                        {member.name}
+                        {formatMyPersonCelebration(member)}
                       </Text>
+                      {member.phoneNumber && (
+                        <View style={styles.contactActions}>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Linking.openURL(`tel:${member.phoneNumber}`)
+                            }
+                            style={styles.actionButton}
+                          >
+                            <Ionicons name="call" size={14} color="#10B981" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Linking.openURL(`sms:${member.phoneNumber}`)
+                            }
+                            style={styles.actionButton}
+                          >
+                            <Ionicons name="mail" size={14} color="#3B82F6" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -322,8 +384,12 @@ export const TotalCelebrationsScreen = () => {
     backgroundColor,
     effectiveTextColor,
   } = useAppContext();
-  const { hasPermission, getContactsForNameday, getMyPeopleForNameday } =
-    useContacts();
+  const {
+    hasPermission,
+    getContactsForNameday,
+    getMyPeopleForNameday,
+    myPeople,
+  } = useContacts();
   const now = React.useMemo(() => new Date(), []);
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
@@ -344,11 +410,12 @@ export const TotalCelebrationsScreen = () => {
 
   // Effect to scroll to today when the screen opens or the month changes to current month
   useEffect(() => {
-    const isCurrentMonth = displayMonthIndex === now.getMonth();
-    const isCurrentYear = (selectedYear || now.getFullYear()) === now.getFullYear();
+    const today = new Date();
+    const isCurrentMonth = displayMonthIndex === today.getMonth();
+    const isCurrentYear = (selectedYear || today.getFullYear()) === today.getFullYear();
     
     if (isCurrentMonth && isCurrentYear && daysData.length > 0) {
-      const todayIndex = daysData.findIndex(d => d.day === now.getDate());
+      const todayIndex = daysData.findIndex(d => d.day === today.getDate());
       if (todayIndex !== -1) {
         // Jump immediately to today without animation
         setTimeout(() => {
@@ -357,7 +424,7 @@ export const TotalCelebrationsScreen = () => {
             animated: false,
             viewPosition: 0, // 0 = top of index
           });
-        }, 50);
+        }, 100);
       }
     } else if (daysData.length > 0) {
       // For any other month, jump to the start of the month
@@ -367,9 +434,9 @@ export const TotalCelebrationsScreen = () => {
           animated: false,
           viewPosition: 0,
         });
-      }, 50);
+      }, 100);
     }
-  }, [displayMonthIndex, selectedYear, daysData, now]);
+  }, [displayMonthIndex, selectedYear, daysData]);
 
   const monthName = GREEK_MONTHS[displayMonthIndex];
   const displayYear = selectedYear || now.getFullYear();
@@ -458,15 +525,14 @@ export const TotalCelebrationsScreen = () => {
             backgroundColor={backgroundColor}
             getContactsForNameday={getContactsForNameday}
             getMyPeopleForNameday={getMyPeopleForNameday}
-            hasPermission={hasPermission}
-          />
+            hasPermission={hasPermission}            myPeopleData={myPeople}          />
         )}
         keyExtractor={item => String(item.day)}
         scrollEnabled={true}
         initialNumToRender={31}
         getItemLayout={(data, index) => ({
-          length: 60, // approximate height of a DayItem (collapsed)
-          offset: 60 * index,
+          length: 64, // exact height of a collapsed DayItem including margins
+          offset: 64 * index,
           index,
         })}
         onScrollToIndexFailed={info => {

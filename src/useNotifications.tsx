@@ -1,4 +1,6 @@
 import { useEffect, useCallback } from 'react';
+import { Linking } from 'react-native';
+import notifee, { EventType } from '@notifee/react-native';
 import NotificationService from './services/NotificationService';
 import { useAppContext } from './AppContext';
 import { useContacts } from './ContactsContext';
@@ -6,10 +8,14 @@ import {
   findNamedayLocal,
   findWorldDayLocal,
 } from './services/namedayService';
+import {
+  getMyPeopleCelebratingOnDate,
+  formatMyPersonCelebration,
+} from './services/myPeopleCelebrationService';
 
 export const useNotifications = () => {
   const { notificationsEnabled, globalDaysEnabled } = useAppContext();
-  const { getContactsForNameday, getMyPeopleForNameday } = useContacts();
+  const { getContactsForNameday, getMyPeopleForNameday, myPeople } = useContacts();
 
   const getTodaysCelebrations = useCallback(() => {
     const today = new Date();
@@ -27,22 +33,32 @@ export const useNotifications = () => {
     // Get contacts celebrating
     const contactsCelebrating = getContactsForNameday(names);
 
-    // Get my people celebrating
-    const myPeopleCelebrating = getMyPeopleForNameday(names);
+    // Get my people celebrating (name match)
+    const nameMatchMembers = getMyPeopleForNameday(names);
+    // Get my people celebrating (specific date match)
+    const customDateMembers = getMyPeopleCelebratingOnDate(today, myPeople);
+
+    // Merge and remove duplicates by ID
+    const allMyPeople = [...nameMatchMembers];
+    customDateMembers.forEach(person => {
+      if (!allMyPeople.find(p => p.id === person.id)) {
+        allMyPeople.push(person);
+      }
+    });
 
     return {
       names,
       celebrations,
       worldDays,
       contactsCelebrating,
-      myPeopleCelebrating,
+      myPeopleCelebrating: allMyPeople,
     };
-  }, [globalDaysEnabled, getContactsForNameday, getMyPeopleForNameday]);
+  }, [globalDaysEnabled, getContactsForNameday, getMyPeopleForNameday, myPeople]);
 
   const scheduleDailyNotification = useCallback(() => {
     const data = getTodaysCelebrations();
 
-    let title = '🎉 Σημερινές Γιορτές';
+    let titleLabel = '🎉 Σημερινές Γιορτές';
     let message = '';
 
     // Add celebrations
@@ -74,7 +90,7 @@ export const useNotifications = () => {
     if (data.myPeopleCelebrating.length > 0) {
       const memberNames = data.myPeopleCelebrating
         .slice(0, 3)
-        .map((m: any) => m.name)
+        .map((m: any) => formatMyPersonCelebration(m))
         .join(', ');
       message += `Δικοί μου άνθρωποι: ${memberNames}${
         data.myPeopleCelebrating.length > 3
@@ -84,12 +100,54 @@ export const useNotifications = () => {
     }
 
     if (message) {
-      // Schedule for 8:00 AM every day
+      // Find someone to call (prioritize My People, then Contacts)
+      let personToCall: any = null;
+      if (data.myPeopleCelebrating.length > 0) {
+        personToCall = data.myPeopleCelebrating.find((p: any) => p.phoneNumber);
+      }
+      if (!personToCall && data.contactsCelebrating.length > 0) {
+        personToCall = data.contactsCelebrating.find((c: any) => c.phoneNumbers && c.phoneNumbers.length > 0);
+      }
+
+      const actions = [];
+      const notificationData: any = {};
+
+      if (personToCall) {
+        const phone = personToCall.phoneNumber || (personToCall.phoneNumbers && personToCall.phoneNumbers[0].number);
+        const name = personToCall.name || personToCall.displayName;
+        if (phone) {
+          notificationData.phoneNumber = phone;
+          actions.push({
+            title: `📞 Κλήση ${name.split(' ')[0]}`,
+            pressAction: { id: 'call' },
+          });
+          actions.push({
+            title: `💬 Μήνυμα ${name.split(' ')[0]}`,
+            pressAction: { id: 'sms' },
+          });
+        }
+      }
+
+      // Schedule for 08:00 AM
       NotificationService.scheduleDailyNotification(
+        'daily-0800',
         8,
         0,
-        title,
+        titleLabel,
         message.trim(),
+        actions,
+        notificationData
+      );
+
+      // Schedule for 15:00 PM
+      NotificationService.scheduleDailyNotification(
+        'daily-1500',
+        15,
+        0,
+        titleLabel,
+        message.trim(),
+        actions,
+        notificationData
       );
     }
   }, [getTodaysCelebrations]);
@@ -97,6 +155,33 @@ export const useNotifications = () => {
   useEffect(() => {
     // Configure notifications
     NotificationService.configure();
+
+    // Foreground event listener
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      const { notification, pressAction } = detail;
+
+      if (
+        type === EventType.ACTION_PRESS &&
+        (pressAction?.id === 'call' || pressAction?.id === 'sms')
+      ) {
+        const phoneNumber = notification?.data?.phoneNumber;
+        if (phoneNumber) {
+          const url =
+            pressAction.id === 'call'
+              ? `tel:${phoneNumber}`
+              : `sms:${phoneNumber}`;
+          Linking.openURL(url).catch(err =>
+            console.error('Error opening URL:', err),
+          );
+        }
+        // Remove notification
+        if (notification?.id) {
+          notifee.cancelNotification(notification.id);
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {

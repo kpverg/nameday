@@ -247,7 +247,7 @@ export default function MyPeopleScreen() {
                       <Text
                         style={[styles.memberName, { color: effectiveTextColor }]}
                       >
-                        {m.name}
+                        {m.name} {m.relation} {s.assocName || ''}
                       </Text>
                       <Text
                         style={[
@@ -255,8 +255,7 @@ export default function MyPeopleScreen() {
                           { color: darkModeEnabled ? '#9CA3AF' : '#6b7280' },
                         ]}
                       >
-                        {m.relation}
-                        {m.birthday && ` • ${m.birthday}`}
+                        {m.birthday ? `Γενέθλια: ${m.birthday}` : ''}
                       </Text>
                     </View>
                   </View>

@@ -1,273 +1,221 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Linking,
   Alert,
+  FlatList,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useState, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
 import { useContacts } from '../ContactsContext';
 import {
   GREEK_MONTHS_GENITIVE,
   getWeekCelebrations,
 } from '../services/namedayService';
+import {
+  getMyPeopleCelebratingOnDate,
+  formatMyPersonCelebration,
+} from '../services/myPeopleCelebrationService';
 
 interface DayInfo {
   weekday: string;
-  date: string;
   day: number;
-  month: string;
+  monthIndex: number;
   names: string[];
   celebrations: string[];
   worldDays: string[];
   isToday: boolean;
-  contacts: any[];
-  myPeople: any[];
+  dateObj: Date;
 }
 
-const DayCard = ({
+const DayCard = React.memo(({
   item,
   darkMode,
   effectiveTextColor,
+  getContactsForNameday,
+  getMyPeopleForNameday,
+  myPeopleData,
+  hasPermission,
 }: {
   item: DayInfo;
   darkMode?: boolean;
   effectiveTextColor?: string;
-}) => (
-  <View
-    style={[
-      styles.dayCard,
-      darkMode && !item.isToday && styles.dayCardDark,
-      item.isToday && styles.dayCardToday,
-    ]}
-  >
-    <View style={styles.dayHeader}>
-      {
-        // Use a contrasting text color for today's card so it remains readable
+  getContactsForNameday: (names: string[]) => any[];
+  getMyPeopleForNameday: (names: string[]) => any[];
+  myPeopleData: any[];
+  hasPermission: boolean;
+}) => {
+  const monthGenitive = GREEK_MONTHS_GENITIVE[item.monthIndex];
+  const displayDate = `${String(item.day).padStart(2, '0')} ${monthGenitive}`;
+
+  const contacts = useMemo(() => {
+    return hasPermission && item.names.length > 0
+      ? getContactsForNameday(item.names)
+      : [];
+  }, [hasPermission, item.names, getContactsForNameday]);
+
+  const myPeople = useMemo(() => {
+    // Get my people from nameday
+    const namedayMembers = item.names.length > 0 ? getMyPeopleForNameday(item.names) : [];
+    // Get my people from custom birthday/date
+    const customMembers = getMyPeopleCelebratingOnDate(item.dateObj, myPeopleData);
+
+    // Merge and remove duplicates
+    const merged = [...namedayMembers];
+    customMembers.forEach(cm => {
+      if (!merged.find(amp => amp.id === cm.id)) {
+        merged.push(cm);
       }
-      {(() => {
-        const headerTextColor = item.isToday ? '#0B1220' : effectiveTextColor;
-        const bodyTextColor = item.isToday ? '#0B1220' : effectiveTextColor;
-        return (
-          <>
-            <Text
-              style={[
-                styles.dayName,
-                item.isToday && styles.dayNameToday,
-                { color: headerTextColor },
-              ]}
-            >
-              {item.weekday}
-            </Text>
-            <Text
-              style={[
-                styles.dayDate,
-                item.isToday && styles.dayDateToday,
-                { color: headerTextColor },
-              ]}
-            >
-              {item.date}
-            </Text>
-          </>
-        );
-      })()}
-    </View>
+    });
 
-    {item.names.length > 0 && (
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            darkMode && styles.sectionTitleDark,
-            { color: item.isToday ? '#0B1220' : effectiveTextColor },
-          ]}
-        >
-          Ονόματα:
+    return merged;
+  }, [item.names, item.dateObj, myPeopleData, getMyPeopleForNameday]);
+
+  const headerTextColor = item.isToday ? '#0B1220' : effectiveTextColor;
+  const headerTextStyle = useMemo(() => ({ color: headerTextColor }), [headerTextColor]);
+
+  const sectionTitleStyle = useMemo(() => [
+    styles.sectionTitle,
+    darkMode && !item.isToday && styles.sectionTitleDark,
+    item.isToday ? styles.textBlack : styles.textBlue
+  ], [darkMode, item.isToday]);
+
+  const textColorStyle = useMemo(() => ({
+    color: item.isToday ? '#0B1220' : effectiveTextColor
+  }), [item.isToday, effectiveTextColor]);
+
+  return (
+    <View
+      style={[
+        styles.dayCard,
+        darkMode && !item.isToday && styles.dayCardDark,
+        item.isToday && styles.dayCardToday,
+      ]}
+    >
+      <View style={styles.dayHeader}>
+        <Text style={[styles.dayName, item.isToday && styles.dayNameToday, headerTextStyle]}>
+          {item.weekday}
         </Text>
-        <Text
-          style={[
-            styles.namesText,
-            darkMode && styles.namesTextDark,
-            { color: item.isToday ? '#0B1220' : effectiveTextColor },
-          ]}
-        >
-          {item.names.join(', ')}
+        <Text style={[styles.dayDate, item.isToday && styles.dayDateToday, headerTextStyle]}>
+          {displayDate}
         </Text>
       </View>
-    )}
 
-    {item.celebrations.length > 0 && (
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            darkMode && styles.sectionTitleDark,
-            { color: item.isToday ? '#0B1220' : effectiveTextColor },
-          ]}
-        >
-          Εορτές:
-        </Text>
-        {item.celebrations.map((celebration, index) => (
-          <Text
-            key={index}
-            style={[
-              styles.celebrationText,
-              darkMode && styles.celebrationTextDark,
-              { color: item.isToday ? '#0B1220' : effectiveTextColor },
-            ]}
-          >
-            • {celebration}
+      {item.names.length > 0 && (
+        <View style={styles.section}>
+          <Text style={sectionTitleStyle}>
+            Ονόματα:
           </Text>
-        ))}
-      </View>
-    )}
-
-    {item.worldDays.length > 0 && (
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            darkMode && styles.sectionTitleDark,
-            { color: item.isToday ? '#0B1220' : effectiveTextColor },
-          ]}
-        >
-          Παγκόσμιες ημέρες:
-        </Text>
-        {item.worldDays.map((day, index) => (
-          <Text
-            key={index}
-            style={[
-              styles.celebrationText,
-              darkMode && styles.celebrationTextDark,
-              { color: item.isToday ? '#0B1220' : effectiveTextColor },
-            ]}
-          >
-            • {day}
+          <Text style={[styles.namesText, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
+            {item.names.join(', ')}
           </Text>
-        ))}
-      </View>
-    )}
+        </View>
+      )}
 
-    {item.contacts && item.contacts.length > 0 && (
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            darkMode && styles.sectionTitleDark,
-            { color: effectiveTextColor },
-          ]}
-        >
-          Επαφές που γιορτάζουν:
-        </Text>
-        <View style={styles.contactsRow}>
-          {item.contacts.map((contact, index) => (
-            <View key={contact.recordID} style={styles.contactItem}>
-              <Text
-                style={[
-                  styles.contactName,
-                  darkMode && styles.namesTextDark,
-                  { color: item.isToday ? '#0B1220' : effectiveTextColor },
-                ]}
-              >
-                {contact.displayName}
-              </Text>
-              {contact.phoneNumbers && contact.phoneNumbers.length > 0 && (
-                <View style={styles.contactActions}>
-                  <TouchableOpacity
-                    onPress={() =>
-                      Linking.openURL(`tel:${contact.phoneNumbers[0].number}`)
-                    }
-                    style={styles.actionButton}
-                  >
-                    <Ionicons name="call" size={14} color="#10B981" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() =>
-                      Linking.openURL(`sms:${contact.phoneNumbers[0].number}`)
-                    }
-                    style={styles.actionButton}
-                  >
-                    <Ionicons name="mail" size={14} color="#3B82F6" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+      {item.celebrations.length > 0 && (
+        <View style={styles.section}>
+          <Text style={sectionTitleStyle}>
+            Εορτές:
+          </Text>
+          {item.celebrations.map((celebration, index) => (
+            <Text key={index} style={[styles.celebrationText, darkMode && !item.isToday && styles.celebrationTextDark, textColorStyle]}>
+              • {celebration}
+            </Text>
           ))}
         </View>
-      </View>
-    )}
+      )}
 
-    {item.myPeople && item.myPeople.length > 0 && (
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            darkMode && styles.sectionTitleDark,
-            { color: effectiveTextColor },
-          ]}
-        >
-          Δικοί μου άνθρωποι (εορτολόγιο):
-        </Text>
-        <View style={styles.contactsRow}>
-          {item.myPeople.map((member: any) => (
-            <TouchableOpacity
-              key={member.id}
-              style={styles.contactItem}
-              onPress={() => {
-                const buttons = [
-                  ...(member.phoneNumber
-                    ? [
-                        {
-                          text: '📞 Κλήση',
-                          onPress: () =>
-                            Linking.openURL(`tel:${member.phoneNumber}`),
-                        },
-                        {
-                          text: '✉️ SMS',
-                          onPress: () =>
-                            Linking.openURL(`sms:${member.phoneNumber}`),
-                        },
-                      ]
-                    : []),
-                  {
-                    text: 'Κλείσιμο',
-                    style: 'cancel' as any,
-                  },
-                ];
-                Alert.alert(
-                  member.name,
-                  `${member.relation}`,
-                  buttons,
-                  { cancelable: true },
-                );
-              }}
-            >
-              <Text
-                style={[
-                  styles.contactName,
-                  darkMode && styles.namesTextDark,
-                  { color: item.isToday ? '#0B1220' : effectiveTextColor },
-                ]}
-              >
-                {member.name}
-              </Text>
-            </TouchableOpacity>
+      {item.worldDays.length > 0 && (
+        <View style={styles.section}>
+          <Text style={sectionTitleStyle}>
+            Παγκόσμιες ημέρες:
+          </Text>
+          {item.worldDays.map((day, index) => (
+            <Text key={index} style={[styles.celebrationText, darkMode && !item.isToday && styles.celebrationTextDark, textColorStyle]}>
+              • {day}
+            </Text>
           ))}
         </View>
-      </View>
-    )}
+      )}
 
-    {item.names.length === 0 &&
-      item.celebrations.length === 0 &&
-      item.worldDays.length === 0 && (
+      {contacts.length > 0 && (
+        <View style={styles.section}>
+          <Text style={sectionTitleStyle}>
+            Επαφές που γιορτάζουν:
+          </Text>
+          <View style={styles.contactsRow}>
+            {contacts.map((contact) => (
+              <View key={contact.recordID} style={styles.contactItem}>
+                <Text style={[styles.contactName, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
+                  {contact.displayName}
+                </Text>
+                {contact.phoneNumbers && contact.phoneNumbers.length > 0 && (
+                  <View style={styles.contactActions}>
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${contact.phoneNumbers[0].number}`)} style={styles.actionButton}>
+                      <Ionicons name="call" size={14} color="#10B981" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => Linking.openURL(`sms:${contact.phoneNumbers[0].number}`)} style={styles.actionButton}>
+                      <Ionicons name="mail" size={14} color="#3B82F6" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {myPeople.length > 0 && (
+        <View style={styles.section}>
+          <Text style={sectionTitleStyle}>
+            Δικοί μου άνθρωποι (εορτολόγιο):
+          </Text>
+          <View style={styles.contactsRow}>
+            {myPeople.map((member: any) => (
+              <TouchableOpacity
+                key={member.id}
+                style={styles.contactItem}
+                onPress={() => {
+                  const buttons = [
+                    ...(member.phoneNumber
+                      ? [
+                          { text: '📞 Κλήση', onPress: () => Linking.openURL(`tel:${member.phoneNumber}`) },
+                          { text: '✉️ SMS', onPress: () => Linking.openURL(`sms:${member.phoneNumber}`) },
+                        ]
+                      : []),
+                    { text: 'Κλείσιμο', style: 'cancel' as any },
+                  ];
+                  Alert.alert(formatMyPersonCelebration(member), 'Επιλέξτε ενέργεια:', buttons, { cancelable: true });
+                }}
+              >
+                <Text style={[styles.contactName, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
+                  {formatMyPersonCelebration(member)}
+                </Text>
+                {member.phoneNumber && (
+                  <View style={styles.contactActions}>
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${member.phoneNumber}`)} style={styles.actionButton}>
+                      <Ionicons name="call" size={14} color="#10B981" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => Linking.openURL(`sms:${member.phoneNumber}`)} style={styles.actionButton}>
+                      <Ionicons name="mail" size={14} color="#3B82F6" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {item.names.length === 0 && item.celebrations.length === 0 && item.worldDays.length === 0 && (
         <Text style={styles.noData}>Δεν υπάρχουν αναγραφές</Text>
       )}
-  </View>
-);
+    </View>
+  );
+});
 
 export const WeekScreen = () => {
   const {
@@ -277,72 +225,119 @@ export const WeekScreen = () => {
     effectiveTextColor,
     selectedYear,
   } = useAppContext();
-  const { hasPermission, getContactsForNameday, getMyPeopleForNameday } =
-    useContacts();
+  const {
+    hasPermission,
+    getContactsForNameday,
+    getMyPeopleForNameday,
+    myPeople,
+  } = useContacts();
   const [weekData, setWeekData] = useState<DayInfo[]>([]);
+  const flatListRef = useRef<FlatList>(null);
+  const hasInitialScrolled = useRef(false);
 
   useEffect(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get Sunday of the current week (0 is Sunday)
+    const currentDayOfWeek = today.getDay();
+    const startOfCurrentWeek = new Date(today);
+    startOfCurrentWeek.setDate(today.getDate() - currentDayOfWeek);
+
+    // Number of days: From Sunday to today, plus 7 days after today
+    const numDays = currentDayOfWeek + 1 + 7;
+
     const celebrations = getWeekCelebrations(
-      today,
+      startOfCurrentWeek,
       selectedYear || today.getFullYear(),
       globalDaysEnabled,
+      numDays,
     );
 
-    const weekDays: DayInfo[] = celebrations.map(c => {
-      const monthGenitive = GREEK_MONTHS_GENITIVE[c.monthIndex];
+    const weekDays: DayInfo[] = celebrations.map((c, index) => {
+      const dateObj = new Date(startOfCurrentWeek);
+      dateObj.setDate(startOfCurrentWeek.getDate() + index);
+
       return {
         ...c,
-        date: `${String(c.day).padStart(2, '0')} ${monthGenitive}`,
-        month: '', // Not used in view
-        contacts:
-          hasPermission && c.names.length > 0
-            ? getContactsForNameday(c.names)
-            : [],
-        myPeople:
-          c.names.length > 0 ? getMyPeopleForNameday(c.names) : [],
+        dateObj,
       };
     });
 
     setWeekData(weekDays);
+
+    // Scroll to today only once and without animation
+    if (!hasInitialScrolled.current) {
+      setTimeout(() => {
+        if (flatListRef.current && currentDayOfWeek !== -1) {
+          flatListRef.current.scrollToIndex({
+            index: currentDayOfWeek,
+            animated: false,
+            viewPosition: 0,
+          });
+          hasInitialScrolled.current = true;
+        }
+      }, 100);
+    }
   }, [
     globalDaysEnabled,
     hasPermission,
     getContactsForNameday,
     getMyPeopleForNameday,
     selectedYear,
+    myPeople,
   ]);
 
   return (
-    <ScrollView
+    <View
       style={[
         styles.container,
-        { backgroundColor: darkModeEnabled ? '#111827' : backgroundColor },
+        darkModeEnabled && styles.containerDark,
+        !darkModeEnabled && { backgroundColor: backgroundColor },
       ]}
     >
-      <Text
-        style={[
-          styles.title,
-          darkModeEnabled && styles.titleDark,
-          { color: effectiveTextColor },
-        ]}
-      >
-        Εβδομάδα
-      </Text>
-      <Text style={[styles.subtitle, darkModeEnabled && styles.subtitleDark]}>
-        Εορτές των επόμενων 7 ημερών
-      </Text>
-      <View style={styles.weekContent}>
-        {weekData.map((day, index) => (
+      <FlatList
+        ref={flatListRef}
+        ListHeaderComponent={
+          <>
+            <Text
+              style={[
+                styles.title,
+                darkModeEnabled && styles.titleDark,
+                { color: effectiveTextColor },
+              ]}
+            >
+              Εβδομάδα
+            </Text>
+            <Text
+              style={[styles.subtitle, darkModeEnabled && styles.subtitleDark]}
+            >
+              Εορτές εβδομάδας και επόμενων 7 ημερών
+            </Text>
+          </>
+        }
+        data={weekData}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item }) => (
           <DayCard
-            key={index}
-            item={day}
+            item={item}
             darkMode={darkModeEnabled}
             effectiveTextColor={effectiveTextColor}
+            getContactsForNameday={getContactsForNameday}
+            getMyPeopleForNameday={getMyPeopleForNameday}
+            myPeopleData={myPeople}
+            hasPermission={hasPermission}
           />
-        ))}
-      </View>
-    </ScrollView>
+        )}
+        contentContainerStyle={styles.listContent}
+        onScrollToIndexFailed={info => {
+          flatListRef.current?.scrollToOffset({
+            offset: info.averageItemLength * info.index,
+            animated: false,
+          });
+        }}
+      />
+    </View>
   );
 };
 
@@ -486,5 +481,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  textBlack: {
+    color: '#0B1220',
+  },
+  textBlue: {
+    color: '#1E6AC7',
+  },
+  listContent: {
+    paddingBottom: 20,
   },
 });

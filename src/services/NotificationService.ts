@@ -22,6 +22,27 @@ class NotificationService {
       });
     }
 
+    // Set categories for iOS
+    if (Platform.OS === 'ios') {
+      await notifee.setNotificationCategories([
+        {
+          id: 'celebration',
+          actions: [
+            {
+              id: 'call',
+              title: 'Κλήση',
+              foreground: true,
+            },
+            {
+              id: 'sms',
+              title: 'Μήνυμα',
+              foreground: true,
+            },
+          ],
+        },
+      ]);
+    }
+
     // Request permission
     await notifee.requestPermission();
   };
@@ -59,10 +80,13 @@ class NotificationService {
   };
 
   scheduleDailyNotification = async (
+    id: string,
     hour: number,
     minute: number,
     title: string,
     message: string,
+    actions?: any[],
+    data?: any,
   ) => {
     const now = new Date();
     const notificationDate = new Date(
@@ -81,16 +105,22 @@ class NotificationService {
 
     await notifee.createTriggerNotification(
       {
-        id: 'daily-nameday',
+        id: id,
         title: title,
         body: message,
+        data: data,
         android: {
           channelId: this.channelId,
           sound: 'default',
           importance: AndroidImportance.HIGH,
+          pressAction: {
+            id: 'default',
+          },
+          actions: actions,
         },
         ios: {
           sound: 'default',
+          categoryId: 'celebration',
         },
       },
       {
