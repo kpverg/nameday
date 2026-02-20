@@ -41,8 +41,9 @@ import MyPeopleScreen from './MyPeopleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import SearchScreen from './SearchScreen';
 import { SCROLL_DELAYS } from '../utils/scrollchangingscreens';
+import { Fest } from '../services/apiservices/todayfest';
 
-function DayScreenContent() {
+function DayScreenContent({ supabaseFests }: { supabaseFests?: Fest[] }) {
   const {
     globalDaysEnabled,
     darkModeEnabled,
@@ -71,9 +72,18 @@ function DayScreenContent() {
       const now = new Date();
       setDateString(formatDate(now));
       const entry = findNamedayLocal(now);
-      const names = entry?.names ?? [];
+      const localNames = entry?.names ?? [];
+      
+      // Use Supabase names if available, otherwise fallback to local names
+      const supabaseNames = supabaseFests?.[0]?.names ? supabaseFests[0].names.split(',').map(n => n.trim()) : [];
+      const names = supabaseNames.length > 0 ? supabaseNames : localNames;
+      
       setNamesToday(names);
-      setCelebrationToday(entry?.celebrations?.[0] ?? null);
+      
+      // Use Supabase celebrations if available
+      const supabaseCelebs = supabaseFests?.[0]?.celebrations;
+      setCelebrationToday(supabaseCelebs || entry?.celebrations?.[0] || null);
+
       if (globalDaysEnabled) {
         setWorldDayToday(findWorldDayLocal(now));
       } else {
@@ -128,6 +138,7 @@ function DayScreenContent() {
     getContactsForNameday,
     getMyPeopleForNameday,
     myPeople,
+    supabaseFests,
   ]);
 
   return (
@@ -523,7 +534,13 @@ const colors = {
   bgSecondary: '#F3F4F6',
 };
 
-export default function MainScreen() {
+export default function MainScreen({ 
+  supabaseFests,
+  supabaseMonthFests,
+}: { 
+  supabaseFests?: Fest[];
+  supabaseMonthFests?: Fest[];
+}) {
   const { darkModeEnabled, selectedYear, setSelectedYear } = useAppContext();
   const [currentScreen, setCurrentScreen] = useState<
     'day' | 'month' | 'week' | 'close' | 'settings' | 'search'
@@ -570,9 +587,9 @@ export default function MainScreen() {
   const renderCurrent = () => {
     switch (currentScreen) {
       case 'day':
-        return <DayScreenContent />;
+        return <DayScreenContent supabaseFests={supabaseFests} />;
       case 'month':
-        return <TotalCelebrationsScreen />;
+        return <TotalCelebrationsScreen supabaseFests={supabaseMonthFests} />;
       case 'week':
         return <WeekScreen />;
       case 'close':

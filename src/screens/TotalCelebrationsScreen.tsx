@@ -377,7 +377,9 @@ const DayItem = React.memo(
   },
 );
 
-export const TotalCelebrationsScreen = () => {
+import { Fest, getFestsByMonth } from '../services/apiservices/totalMonthFests';
+
+export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }: { supabaseFests?: Fest[] }) => {
   const {
     darkModeEnabled,
     selectedYear,
@@ -391,9 +393,23 @@ export const TotalCelebrationsScreen = () => {
     myPeople,
   } = useContacts();
   const now = React.useMemo(() => new Date(), []);
+  
+  // Use state for the month data so we can update it when month changes
+  const [supabaseMonthData, setSupabaseMonthData] = useState<Fest[]>(initialSupabaseFests || []);
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
   );
+
+  // When props change (initial load), update state
+  useEffect(() => {
+    if (initialSupabaseFests && initialSupabaseFests.length > 0) {
+      // Only update if we received data matching the current display month
+      // logic: checking if data belongs to current displayed month would be safer, 
+      // but for now let's assume parent passed correct initial data
+      setSupabaseMonthData(initialSupabaseFests);
+    }
+  }, [initialSupabaseFests]);
+
   const flatListRef = useRef<FlatList>(null);
   const lastScrollTime = useRef(0);
   const scrollDelay = 300; // milliseconds
@@ -403,10 +419,56 @@ export const TotalCelebrationsScreen = () => {
     return getYearCelebrations(selectedYear || now.getFullYear());
   }, [selectedYear, now]);
 
-  // Filter for the current display month
+  // Fetch data when month changes
+  useEffect(() => {
+    const fetchNewMonthData = async () => {
+      const monthName = GREEK_MONTHS[displayMonthIndex];
+      console.log(`Month changed to ${monthName}. Fetching Supabase data...`);
+      try {
+        const newData = await getFestsByMonth(monthName);
+        if (newData && newData.length > 0) {
+          setSupabaseMonthData(newData);
+        } else {
+          // If no data, clear previous month's data to avoid mixing
+          setSupabaseMonthData([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch month data:', error);
+      }
+    };
+
+    fetchNewMonthData();
+  }, [displayMonthIndex]);
+
+  // Filter for the current display month and merge with Supabase data
   const daysData = React.useMemo(() => {
-    return yearData.filter(d => d.monthIndex === displayMonthIndex);
-  }, [yearData, displayMonthIndex]);
+    // Current month's local data
+    const localDays = yearData.filter(d => d.monthIndex === displayMonthIndex);
+
+    const monthName = GREEK_MONTHS[displayMonthIndex];
+
+    // Filter Supabase data for this month (just in case)
+    const currentMonthFests = supabaseMonthData?.filter(f => f.month === monthName) || [];
+
+    // Map over local days and merge if we have remote data
+    return localDays.map(localDay => {
+      // Find matching remote day
+      // Note: supabase `day` might be number or string. Convert to number for comparison.
+      const remoteDay = currentMonthFests.find(f => Number(f.day) === localDay.day);
+
+      if (remoteDay) {
+        // Merge!
+        return {
+          ...localDay,
+          names: remoteDay.names ? remoteDay.names.split(',').map(n => n.trim()) : localDay.names,
+          celebrations: remoteDay.celebrations ? remoteDay.celebrations.split(',').map(c => c.trim()) : localDay.celebrations,
+        };
+      }
+
+      return localDay;
+    });
+
+  }, [yearData, displayMonthIndex, supabaseMonthData]);
 
   // Effect to scroll to today when the screen opens or the month changes to current month
   useEffect(() => {
