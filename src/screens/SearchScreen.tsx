@@ -24,18 +24,27 @@ export function SearchScreen({ onBack }: Props) {
   const [normalizedQuery, setNormalizedQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
 
-  const findName = () => {
+  const findName = async () => {
     const qLower = normalizeGreekName(query);
     setNormalizedQuery(qLower);
+    setSearching(true);
 
-    const { results: searchResults, message: searchMessage } = searchNames(
-      query,
-      selectedYear,
-    );
+    try {
+      const { results: searchResults, message: searchMessage } = await searchNames(
+        query,
+        selectedYear,
+      );
 
-    setResults(searchResults);
-    setMessage(searchMessage);
+      setResults(searchResults);
+      setMessage(searchMessage);
+    } catch (err) {
+      console.error(err);
+      setMessage('Σφάλμα κατά την αναζήτηση.');
+    } finally {
+      setSearching(false);
+    }
   };
 
   return (

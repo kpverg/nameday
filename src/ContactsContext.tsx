@@ -110,11 +110,6 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Load immediately on mount
     loadMyPeople();
-
-    // Reload periodically to catch updates from the management screen
-    const interval = setInterval(loadMyPeople, 3000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const requestPermission = async (): Promise<boolean> => {
@@ -258,6 +253,13 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const handleAppStateChange = async (state: AppStateStatus) => {
+    // Refresh contacts when app comes to foreground
+    if (state === 'active' && hasPermission) {
+      await loadContacts();
+    }
+  };
+
   useEffect(() => {
     // Check if we already have permission
     const checkPermission = async () => {
@@ -284,13 +286,6 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
 
     checkPermission();
 
-    // Reload contacts periodically to catch updates while app is open
-    const contactsInterval = setInterval(() => {
-      if (hasPermission) {
-        loadContacts();
-      }
-    }, 10000); // Check every 10 seconds
-
     // Listen for app state changes (foreground/background)
     const subscription = AppState.addEventListener(
       'change',
@@ -299,17 +294,9 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       subscription.remove();
-      clearInterval(contactsInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPermission]);
-
-  const handleAppStateChange = async (state: AppStateStatus) => {
-    // Refresh contacts when app comes to foreground
-    if (state === 'active' && hasPermission) {
-      await loadContacts();
-    }
-  };
 
   const refreshContacts = async () => {
     if (hasPermission) {

@@ -23,7 +23,7 @@ import {
   formatMyPersonCelebration,
 } from '../services/myPeopleCelebrationService';
 
-const DayItem = React.memo(
+  const DayItem = React.memo(
   ({
     day,
     celebrations,
@@ -40,6 +40,8 @@ const DayItem = React.memo(
     getMyPeopleForNameday,
     hasPermission,
     myPeopleData,
+    expanded,
+    onToggleExpand,
   }: {
     day: number;
     celebrations: string[];
@@ -56,9 +58,9 @@ const DayItem = React.memo(
     getMyPeopleForNameday: (names: string[]) => any[];
     hasPermission: boolean;
     myPeopleData: any[];
+    expanded: boolean;
+    onToggleExpand: () => void;
   }) => {
-    const [expanded, setExpanded] = useState(false);
-
     // Lazy load contacts only when expanded
     const contacts =
       expanded && hasPermission && names.length > 0
@@ -89,7 +91,7 @@ const DayItem = React.memo(
 
     return (
       <TouchableOpacity
-        onPress={() => setExpanded(!expanded)}
+        onPress={onToggleExpand}
         style={[
           styles.dayContainer,
           isToday && styles.todayContainer,
@@ -107,15 +109,11 @@ const DayItem = React.memo(
           >
             {weekdayName} {dayFormatted} {monthNameGenitive}
           </Text>
-          {(names.length > 0 ||
-            celebrations.length > 0 ||
-            worldDays.length > 0) && (
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={isToday ? '#0369A1' : darkMode ? '#60A5FA' : '#1E6AC7'}
-            />
-          )}
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={isToday ? '#0369A1' : darkMode ? '#60A5FA' : '#1E6AC7'}
+          />
         </View>
         {expanded && (
           <View
@@ -124,29 +122,27 @@ const DayItem = React.memo(
               darkMode && styles.expandedContentDark,
             ]}
           >
-            {names.length > 0 && (
-              <View style={styles.namesSection}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    darkMode && styles.sectionTitleDark,
-                    { color: effectiveTextColor },
-                  ]}
-                >
-                  Ονόματα:
-                </Text>
-                <Text
-                  style={[
-                    styles.namesText,
-                    darkMode && styles.namesTextDark,
-                    { color: effectiveTextColor },
-                  ]}
-                >
-                  {names.join(', ')}
-                </Text>
-              </View>
-            )}
-            {celebrations.length > 0 && (
+            <View style={styles.namesSection}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  darkMode && styles.sectionTitleDark,
+                  { color: effectiveTextColor },
+                ]}
+              >
+                Ονόματα:
+              </Text>
+              <Text
+                style={[
+                  styles.namesText,
+                  darkMode && styles.namesTextDark,
+                  { color: effectiveTextColor },
+                ]}
+              >
+                {names.length > 0 && names[0] !== 'NULL' ? names.join(', ') : '—'}
+              </Text>
+            </View>
+            {celebrations.length > 0 && celebrations[0] !== 'NULL' && (
               <View style={styles.celebrationsSection}>
                 <Text
                   style={[
@@ -377,14 +373,23 @@ const DayItem = React.memo(
   },
 );
 
-import { Fest, getFestsByMonth } from '../services/apiservices/totalMonthFests';
+import { getFestsByMonth } from '../services/apiservices/totalMonthFests';
+import { getWorldDaysByMonth, WorldDay } from '../services/apiservices/worldday';
+import type { Fest } from '../types/fest';
 
-export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }: { supabaseFests?: Fest[] }) => {
+export const TotalCelebrationsScreen = ({ 
+  supabaseFests: initialSupabaseFests,
+  supabaseWorldDays: initialSupabaseWorldDays
+}: { 
+  supabaseFests?: Fest[],
+  supabaseWorldDays?: WorldDay[]
+}) => {
   const {
     darkModeEnabled,
     selectedYear,
     backgroundColor,
     effectiveTextColor,
+    globalDaysEnabled,
   } = useAppContext();
   const {
     hasPermission,
@@ -396,19 +401,24 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
   
   // Use state for the month data so we can update it when month changes
   const [supabaseMonthData, setSupabaseMonthData] = useState<Fest[]>(initialSupabaseFests || []);
+  const [supabaseWorldDayData, setSupabaseWorldDayData] = useState<WorldDay[]>(initialSupabaseWorldDays || []);
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
   );
+  const [expandedDay, setExpandedDay] = useState<number | null>(null);
 
   // When props change (initial load), update state
   useEffect(() => {
     if (initialSupabaseFests && initialSupabaseFests.length > 0) {
-      // Only update if we received data matching the current display month
-      // logic: checking if data belongs to current displayed month would be safer, 
-      // but for now let's assume parent passed correct initial data
       setSupabaseMonthData(initialSupabaseFests);
     }
   }, [initialSupabaseFests]);
+
+  useEffect(() => {
+    if (initialSupabaseWorldDays && initialSupabaseWorldDays.length > 0) {
+      setSupabaseWorldDayData(initialSupabaseWorldDays);
+    }
+  }, [initialSupabaseWorldDays]);
 
   const flatListRef = useRef<FlatList>(null);
   const lastScrollTime = useRef(0);
@@ -429,8 +439,15 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
         if (newData && newData.length > 0) {
           setSupabaseMonthData(newData);
         } else {
-          // If no data, clear previous month's data to avoid mixing
           setSupabaseMonthData([]);
+        }
+
+        // Fetch world days if enabled
+        if (globalDaysEnabled) {
+          const wdData = await getWorldDaysByMonth(monthName);
+          setSupabaseWorldDayData(wdData);
+        } else {
+          setSupabaseWorldDayData([]);
         }
       } catch (error) {
         console.error('Failed to fetch month data:', error);
@@ -438,7 +455,7 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
     };
 
     fetchNewMonthData();
-  }, [displayMonthIndex]);
+  }, [displayMonthIndex, globalDaysEnabled]);
 
   // Filter for the current display month and merge with Supabase data
   const daysData = React.useMemo(() => {
@@ -448,27 +465,49 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
     const monthName = GREEK_MONTHS[displayMonthIndex];
 
     // Filter Supabase data for this month (just in case)
-    const currentMonthFests = supabaseMonthData?.filter(f => f.month === monthName) || [];
+    // We trim to handle potential invisible spaces from DB
+    const currentMonthFests = supabaseMonthData?.filter(f => 
+      f.month?.trim() === monthName?.trim()
+    ) || [];
+    const currentMonthWorldDays = supabaseWorldDayData?.filter(w => 
+      w.month?.trim() === monthName?.trim()
+    ) || [];
 
     // Map over local days and merge if we have remote data
     return localDays.map(localDay => {
       // Find matching remote day
-      // Note: supabase `day` might be number or string. Convert to number for comparison.
       const remoteDay = currentMonthFests.find(f => Number(f.day) === localDay.day);
+      const remoteWD = currentMonthWorldDays.filter(w => Number(w.day) === localDay.day);
+
+      let mergedNames = localDay.names;
+      let mergedCelebs = localDay.celebrations;
+      let mergedWorldDays = localDay.worldDays;
 
       if (remoteDay) {
-        // Merge!
-        return {
-          ...localDay,
-          names: remoteDay.names ? remoteDay.names.split(',').map(n => n.trim()) : localDay.names,
-          celebrations: remoteDay.celebrations ? remoteDay.celebrations.split(',').map(c => c.trim()) : localDay.celebrations,
-        };
+        const remoteNames = remoteDay.names ? (remoteDay.names as string).split(',').map((n: string) => n.trim()) : [];
+        const remoteCelebs = remoteDay.celebrations ? (remoteDay.celebrations as string).split(',').map((c: string) => c.trim()) : [];
+        
+        mergedNames = Array.from(new Set([...localDay.names, ...remoteNames]));
+        mergedCelebs = Array.from(new Set([...localDay.celebrations, ...remoteCelebs]));
       }
 
-      return localDay;
+      if (remoteWD.length > 0) {
+        // Collect titles from all remote world days for this day
+        const wdTitles = remoteWD.map(w => w.title).filter(Boolean) as string[];
+        if (wdTitles.length > 0) {
+          mergedWorldDays = wdTitles;
+        }
+      }
+
+      return {
+        ...localDay,
+        names: mergedNames,
+        celebrations: mergedCelebs,
+        worldDays: mergedWorldDays,
+      };
     });
 
-  }, [yearData, displayMonthIndex, supabaseMonthData]);
+  }, [yearData, displayMonthIndex, supabaseMonthData, supabaseWorldDayData]);
 
   // Effect to scroll to today when the screen opens or the month changes to current month
   useEffect(() => {
@@ -507,6 +546,7 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
     const currentTime = Date.now();
     if (currentTime - lastScrollTime.current < scrollDelay) return;
     lastScrollTime.current = currentTime;
+    setExpandedDay(null);
     setDisplayMonthIndex(prev => (prev - 1 < 0 ? 0 : prev - 1));
   };
 
@@ -514,6 +554,7 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
     const currentTime = Date.now();
     if (currentTime - lastScrollTime.current < scrollDelay) return;
     lastScrollTime.current = currentTime;
+    setExpandedDay(null);
     setDisplayMonthIndex(prev => (prev + 1 > 11 ? 11 : prev + 1));
   };
 
@@ -587,7 +628,11 @@ export const TotalCelebrationsScreen = ({ supabaseFests: initialSupabaseFests }:
             backgroundColor={backgroundColor}
             getContactsForNameday={getContactsForNameday}
             getMyPeopleForNameday={getMyPeopleForNameday}
-            hasPermission={hasPermission}            myPeopleData={myPeople}          />
+            hasPermission={hasPermission}
+            myPeopleData={myPeople}
+            expanded={expandedDay === item.day}
+            onToggleExpand={() => setExpandedDay(expandedDay === item.day ? null : item.day)}
+          />
         )}
         keyExtractor={item => String(item.day)}
         scrollEnabled={true}

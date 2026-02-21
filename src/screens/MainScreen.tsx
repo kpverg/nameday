@@ -41,9 +41,16 @@ import MyPeopleScreen from './MyPeopleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import SearchScreen from './SearchScreen';
 import { SCROLL_DELAYS } from '../utils/scrollchangingscreens';
-import { Fest } from '../services/apiservices/todayfest';
+import type { Fest } from '../types/fest';
+import type { WorldDay } from '../services/apiservices/worldday';
 
-function DayScreenContent({ supabaseFests }: { supabaseFests?: Fest[] }) {
+function DayScreenContent({ 
+  supabaseFests, 
+  supabaseWorldDays 
+}: { 
+  supabaseFests?: Fest[];
+  supabaseWorldDays?: WorldDay[];
+}) {
   const {
     globalDaysEnabled,
     darkModeEnabled,
@@ -74,18 +81,23 @@ function DayScreenContent({ supabaseFests }: { supabaseFests?: Fest[] }) {
       const entry = findNamedayLocal(now);
       const localNames = entry?.names ?? [];
       
-      // Use Supabase names if available, otherwise fallback to local names
-      const supabaseNames = supabaseFests?.[0]?.names ? supabaseFests[0].names.split(',').map(n => n.trim()) : [];
-      const names = supabaseNames.length > 0 ? supabaseNames : localNames;
+      // Merge Supabase names with local movable names
+      const supabaseNames = supabaseFests?.[0]?.names && supabaseFests[0].names !== 'NULL' ? supabaseFests[0].names.split(',').map(n => n.trim()) : [];
+      const names = Array.from(new Set([...localNames, ...supabaseNames]));
       
       setNamesToday(names);
       
-      // Use Supabase celebrations if available
-      const supabaseCelebs = supabaseFests?.[0]?.celebrations;
-      setCelebrationToday(supabaseCelebs || entry?.celebrations?.[0] || null);
+      // Merge Supabase celebrations with local movable celebrations
+      const supabaseCelebs = supabaseFests?.[0]?.celebrations && supabaseFests[0].celebrations !== 'NULL' ? supabaseFests[0].celebrations.split(',').map(c => c.trim()) : [];
+      const localCelebs = entry?.celebrations ?? [];
+      const allCelebs = Array.from(new Set([...localCelebs, ...supabaseCelebs]));
+      
+      setCelebrationToday(allCelebs.length > 0 ? allCelebs.join(', ') : null);
 
       if (globalDaysEnabled) {
-        setWorldDayToday(findWorldDayLocal(now));
+        // Use Supabase world days if available, otherwise fallback to local
+        const supabaseWD = supabaseWorldDays?.map(w => w.title).filter(Boolean).join(', ');
+        setWorldDayToday(supabaseWD || findWorldDayLocal(now));
       } else {
         setWorldDayToday(null);
       }
@@ -139,6 +151,7 @@ function DayScreenContent({ supabaseFests }: { supabaseFests?: Fest[] }) {
     getMyPeopleForNameday,
     myPeople,
     supabaseFests,
+    supabaseWorldDays,
   ]);
 
   return (
@@ -188,7 +201,7 @@ function DayScreenContent({ supabaseFests }: { supabaseFests?: Fest[] }) {
             >
               Ονόματα σήμερα:
             </Text>
-            {namesToday.length ? (
+            {namesToday.length > 0 && namesToday[0] !== 'NULL' ? (
               <Text
                 style={[
                   styles.namesList,
@@ -210,7 +223,7 @@ function DayScreenContent({ supabaseFests }: { supabaseFests?: Fest[] }) {
             )}
           </View>
         </View>
-        {celebrationToday && (
+        {celebrationToday && celebrationToday !== 'NULL' && (
           <View
             style={[
               styles.celebrationBox,
@@ -537,9 +550,13 @@ const colors = {
 export default function MainScreen({ 
   supabaseFests,
   supabaseMonthFests,
+  supabaseWorldDays,
+  supabaseMonthWorldDays,
 }: { 
   supabaseFests?: Fest[];
   supabaseMonthFests?: Fest[];
+  supabaseWorldDays?: WorldDay[];
+  supabaseMonthWorldDays?: WorldDay[];
 }) {
   const { darkModeEnabled, selectedYear, setSelectedYear } = useAppContext();
   const [currentScreen, setCurrentScreen] = useState<
@@ -587,11 +604,26 @@ export default function MainScreen({
   const renderCurrent = () => {
     switch (currentScreen) {
       case 'day':
-        return <DayScreenContent supabaseFests={supabaseFests} />;
+        return (
+          <DayScreenContent 
+            supabaseFests={supabaseFests} 
+            supabaseWorldDays={supabaseWorldDays} 
+          />
+        );
       case 'month':
-        return <TotalCelebrationsScreen supabaseFests={supabaseMonthFests} />;
+        return (
+          <TotalCelebrationsScreen 
+            supabaseFests={supabaseMonthFests} 
+            supabaseWorldDays={supabaseMonthWorldDays} 
+          />
+        );
       case 'week':
-        return <WeekScreen />;
+        return (
+          <WeekScreen 
+            supabaseMonthFests={supabaseMonthFests} 
+            supabaseMonthWorldDays={supabaseMonthWorldDays} 
+          />
+        );
       case 'close':
         return <MyPeopleScreen />;
       case 'settings':
@@ -599,7 +631,12 @@ export default function MainScreen({
       case 'search':
         return <SearchScreen onBack={() => setCurrentScreen('day')} />;
       default:
-        return <DayScreenContent />;
+        return (
+          <DayScreenContent 
+            supabaseFests={supabaseFests} 
+            supabaseWorldDays={supabaseWorldDays} 
+          />
+        );
     }
   };
 

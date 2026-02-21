@@ -1,4 +1,4 @@
-import { Datanames } from '../../data/datanames';
+import supabase from '../utils/supabase';
 import {
   getMovableNamedayEntries,
   getMovingFeastForDate,
@@ -28,45 +28,52 @@ const GREEK_MONTHS = [
 ];
 
 /**
- * Searches for names in both static and movable celebrations.
+ * Searches for names in both Supabase and movable celebrations.
  * @param query The name to search for.
  * @param selectedYear The year to calculate movable feasts for.
  * @returns An array of SearchResult or an error message.
  */
-export const searchNames = (
+export const searchNames = async (
   query: string,
   selectedYear: number | null,
-): { results: SearchResult[]; message: string | null } => {
+): Promise<{ results: SearchResult[]; message: string | null }> => {
   const q = query.trim();
   if (!q) {
     return { results: [], message: 'Γράψτε ένα όνομα.' };
   }
 
-  const qLower = normalizeGreekName(q);
   const found: SearchResult[] = [];
 
-  // 1. Search static data
-  for (const entry of Datanames) {
-    if (
-      entry.names &&
-      entry.names.some((n: string) => normalizeGreekName(n) === qLower)
-    ) {
+  // 1. Search Supabase (remote data)
+  const { data, error } = await supabase
+    .from('fests')
+    .select('day, month, names, celebrations')
+    .ilike('names', `%${q}%`);
+
+  if (!error && data) {
+    data.forEach(entry => {
+      // Split names string to array
+      const namesArray = (entry.names as string).split(',').map(n => n.trim());
+      // Re-verify exact match or relevant match (since ilike is partial)
+      // but let's trust ilike for now for better ux
       found.push({
-        day: entry.day,
-        month: entry.month,
-        names: entry.names,
-        celebrations: entry.celebrations,
+        day: Number(entry.day),
+        month: entry.month as string,
+        names: namesArray,
+        celebrations: entry.celebrations ? (entry.celebrations as string).split(',').map(c => c.trim()) : [],
       });
-    }
+    });
   }
 
   // 2. Search movable nameday entries for selected year
   const year = selectedYear || new Date().getFullYear();
   const moving = getMovableNamedayEntries(year);
+  const qLower = normalizeGreekName(q);
+  
   for (const me of moving) {
     if (
       me.names &&
-      me.names.some((n: string) => normalizeGreekName(n) === qLower)
+      me.names.some((n: string) => normalizeGreekName(n).includes(qLower))
     ) {
       found.push({
         day: me.day,

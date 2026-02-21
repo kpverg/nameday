@@ -6,28 +6,35 @@ import { useAppContext } from './AppContext';
 import { useContacts } from './ContactsContext';
 import {
   findNamedayLocal,
-  findWorldDayLocal,
 } from './services/namedayService';
 import {
   getMyPeopleCelebratingOnDate,
   formatMyPersonCelebration,
 } from './services/myPeopleCelebrationService';
+import type { Fest } from './types/fest';
+import type { WorldDay } from './services/apiservices/worldday';
 
-export const useNotifications = () => {
+export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDay[]) => {
   const { notificationsEnabled, globalDaysEnabled } = useAppContext();
   const { getContactsForNameday, getMyPeopleForNameday, myPeople } = useContacts();
 
   const getTodaysCelebrations = useCallback(() => {
     const today = new Date();
     const entry = findNamedayLocal(today);
-    const names = entry?.names || [];
-    const celebrations = entry?.celebrations || [];
+    
+    // Remote data merging
+    const supabaseNames = remoteFests?.[0]?.names ? (remoteFests[0].names as string).split(',').map(n => n.trim()) : [];
+    const supabaseCelebs = remoteFests?.[0]?.celebrations ? (remoteFests[0].celebrations as string).split(',').map(c => c.trim()) : [];
+
+    const names = supabaseNames.length > 0 ? supabaseNames : (entry?.names || []);
+    const celebrations = supabaseCelebs.length > 0 ? supabaseCelebs : (entry?.celebrations || []);
 
     // Get world days if enabled
     let worldDays: string[] = [];
     if (globalDaysEnabled) {
-      const wd = findWorldDayLocal(today);
-      if (wd) worldDays = [wd];
+      if (remoteWorldDays && remoteWorldDays.length > 0) {
+        worldDays = remoteWorldDays.map(w => w.title).filter(Boolean) as string[];
+      }
     }
 
     // Get contacts celebrating

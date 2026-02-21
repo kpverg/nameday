@@ -1,12 +1,5 @@
 import supabase from '../../utils/supabase'
-
-export interface Fest {
-  day?: number | string
-  month?: string
-  names?: string
-  celebrations?: string
-  [key: string]: any
-}
+import type { Fest } from '../../types/fest'
 
 /**
  * Fetches all festivals for a specific month.
@@ -26,7 +19,7 @@ export async function getFestsByMonth(month: string): Promise<Fest[]> {
 
   const { data, error } = await supabase
     .from('fests')
-    .select('day, names, celebrations')
+    .select('day, month, names, celebrations')
     .ilike('month', month.trim()) // Use ilike and trim just in case
     .order('day', { ascending: true });
 

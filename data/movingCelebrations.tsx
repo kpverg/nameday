@@ -27,7 +27,6 @@
 import {
   movableFeasts,
   getMovingFeastForDate as getFeastForDate,
-  getMovableFeastsArray,
 } from '../src/services/calculateMovingCeleb';
 
 export { getFeastForDate as getMovingFeastForDate };
@@ -68,8 +67,52 @@ export function getMovableNamedayEntries(year: number): NamedayEntry[] {
   const easter = feasts['Πάσχα'];
   const palms = feasts['Κυριακή των Βαΐων'];
   const thomas = feasts['Κυριακή του Θωμά'];
+  const zoodochosPigi = feasts['Ζωοδόχος Πηγή'];
+  const holySpirit = feasts['Αγίου Πνεύματος'];
+  const allSaints = feasts['Αγίων Πάντων'];
+  const georgios = feasts['Άγιος Γεώργιος'];
 
   const entries: NamedayEntry[] = [];
+
+  if (georgios) {
+    const monthName = GREEK_MONTHS_NOMINATIVE[georgios.getMonth()];
+    entries.push({
+      day: georgios.getDate(),
+      month: monthName,
+      names: ['Γεώργιος', 'Γιώργος', 'Γιωργάκης', 'Γεωργία', 'Γιωργία', 'Γιωργίτσα', 'Γωγώ', 'Τζώρτζια'],
+      celebrations: ['Αγίου Γεωργίου'],
+    });
+  }
+
+  if (zoodochosPigi) {
+    const monthName = GREEK_MONTHS_NOMINATIVE[zoodochosPigi.getMonth()];
+    entries.push({
+      day: zoodochosPigi.getDate(),
+      month: monthName,
+      names: ['Ζωή', 'Ζωίτσα', 'Ζωζώ', 'Πηγή', 'Κρήνη', 'Κρηνιώ'],
+      celebrations: ['Ζωοδόχου Πηγής'],
+    });
+  }
+
+  if (holySpirit) {
+    const monthName = GREEK_MONTHS_NOMINATIVE[holySpirit.getMonth()];
+    entries.push({
+      day: holySpirit.getDate(),
+      month: monthName,
+      names: ['Τριάδα', 'Τριάδω', 'Τριανταφυλλιά'],
+      celebrations: ['Αγίου Πνεύματος'],
+    });
+  }
+
+  if (allSaints) {
+    const monthName = GREEK_MONTHS_NOMINATIVE[allSaints.getMonth()];
+    entries.push({
+      day: allSaints.getDate(),
+      month: monthName,
+      names: ['Αγαμέμνων', 'Αγαμέμνονας', 'Αγησίλαος', 'Αγόρω', 'Αγορίτσα', 'Αίολος', 'Άλκηστις', 'Αλκμήνη', 'Ανδρομέδα', 'Αντιόπη', 'Αριστομένης', 'Αρθούρος', 'Βελισσάριος', 'Βενέτιος', 'Βενετία', 'Βενιζέλος', 'Βιολέτα', 'Βρασίδας', 'Διαγόρας', 'Δίκαιος', 'Εβελίνα', 'Έκτορας', 'Ελβίρα', 'Εριφύλη', 'Έρρικα', 'Ερρίκος', 'Ερωτόκριτος', 'Ευαγόρας', 'Ευριπίδης', 'Ευρυδίκη', 'Ζώτος', 'Ήβη', 'Ηλέκτρα', 'Ηρώ', 'Θέλμα', 'Θεόβουλος', 'Θεόφραστος', 'Θησέας', 'Ινώ', 'Ιοκάστη', 'Ισαβέλλα', 'Ισμήνη', 'Καραρίνα', 'Κίμων', 'Κίμωνας', 'Κλέαρχος', 'Κλεομένης', 'Κομνηνός', 'Κρίτων', 'Λαέρτης', 'Λογοθέτης', 'Λυκούργος', 'Μαλαματή', 'Μάρω', 'Μίνωας', 'Μιράντα', 'Μιρέλλα', 'Μυρτώ', 'Ναυσικά', 'Νεοκλής', 'Νεοπτόλεμος', 'Νιόβη', 'Ορφέας', 'Όθων', 'Όθωνας', 'Παγώνα', 'Πανωραία', 'Περίανδρος', 'Πραξιτέλης', 'Πυθαγόρας', 'Ροδοθέα', 'Τερέζα', 'Τερψιθέα', 'Τίμων', 'Τίμωνας', 'Φαίδρα', 'Φρύνη', 'Χλόη', 'Χρυσηίδα'],
+      celebrations: ['Αγίων Πάντων'],
+    });
+  }
 
   if (palms) {
     const monthName = GREEK_MONTHS_NOMINATIVE[palms.getMonth()];
@@ -123,6 +166,50 @@ export function getMovableNamedayEntries(year: number): NamedayEntry[] {
       celebrations: ['Πάσχα'],
     });
   }
+
+  // Add other movable feasts that don't necessarily have names but are important celebrations
+  const otherFeasts = [
+    'Καθαρά Δευτέρα',
+    'Τσικνοπέμπτη',
+    'Ψυχοσάββατο',
+    'Κυριακή της Απόκρεω',
+    'Τυροφάγος',
+    'Αʼ Χαιρετισμοί',
+    'Κυριακή της Ορθοδοξίας',
+    'Βʼ Χαιρετισμοί',
+    'Βʼ Κυριακή των Νηστειών',
+    'Γʼ Χαιρετισμοί',
+    'Κυριακή της Σταυροπροσκυνήσεως',
+    'Δʼ Χαιρετισμοί',
+    'Δʼ Κυριακή των Νηστειών',
+    'Ακάθιστος Ύμνος',
+    'Εʼ Κυριακή των Νηστειών',
+    'Σάββατο του Λαζάρου',
+    'Μεγάλη Δευτέρα',
+    'Μεγάλη Τρίτη',
+    'Μεγάλη Τετάρτη',
+    'Μεγάλη Πέμπτη',
+    'Μεγάλη Παρασκευή',
+    'Μεγάλο Σάββατο',
+    '3η Διακαινησίμου',
+    'Εργατική Πρωτομαγιά',
+    'Γιορτή της Μητέρας',
+    'Ανάληψη',
+    'Πεντηκοστή'
+  ];
+
+  otherFeasts.forEach(feastName => {
+    const feastDate = feasts[feastName];
+    if (feastDate) {
+      const monthName = GREEK_MONTHS_NOMINATIVE[feastDate.getMonth()];
+      entries.push({
+        day: feastDate.getDate(),
+        month: monthName,
+        names: [],
+        celebrations: [feastName],
+      });
+    }
+  });
 
   return entries;
 }

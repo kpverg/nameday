@@ -14,11 +14,16 @@ import { useContacts } from '../ContactsContext';
 import {
   GREEK_MONTHS_GENITIVE,
   getWeekCelebrations,
+  GREEK_MONTHS,
 } from '../services/namedayService';
 import {
   getMyPeopleCelebratingOnDate,
   formatMyPersonCelebration,
 } from '../services/myPeopleCelebrationService';
+import { getFestsByMonth } from '../services/apiservices/totalMonthFests';
+import { getWorldDaysByMonth } from '../services/apiservices/worldday';
+import type { Fest } from '../types/fest';
+import type { WorldDay } from '../services/apiservices/worldday';
 
 interface DayInfo {
   weekday: string;
@@ -104,18 +109,16 @@ const DayCard = React.memo(({
         </Text>
       </View>
 
-      {item.names.length > 0 && (
-        <View style={styles.section}>
-          <Text style={sectionTitleStyle}>
-            Ονόματα:
-          </Text>
-          <Text style={[styles.namesText, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
-            {item.names.join(', ')}
-          </Text>
-        </View>
-      )}
+      <View style={styles.section}>
+        <Text style={sectionTitleStyle}>
+          Ονόματα:
+        </Text>
+        <Text style={[styles.namesText, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
+          {item.names.length > 0 && item.names[0] !== 'NULL' ? item.names.join(', ') : '—'}
+        </Text>
+      </View>
 
-      {item.celebrations.length > 0 && (
+      {item.celebrations.length > 0 && item.celebrations[0] !== 'NULL' && (
         <View style={styles.section}>
           <Text style={sectionTitleStyle}>
             Εορτές:
@@ -217,7 +220,13 @@ const DayCard = React.memo(({
   );
 });
 
-export const WeekScreen = () => {
+export const WeekScreen = ({
+  supabaseMonthFests,
+  supabaseMonthWorldDays,
+}: {
+  supabaseMonthFests?: Fest[];
+  supabaseMonthWorldDays?: WorldDay[];
+}) => {
   const {
     globalDaysEnabled,
     darkModeEnabled,
@@ -231,22 +240,69 @@ export const WeekScreen = () => {
     getMyPeopleForNameday,
     myPeople,
   } = useContacts();
-  const [weekData, setWeekData] = useState<DayInfo[]>([]);
+  const [supabaseFests, setSupabaseFests] = useState<Fest[]>(supabaseMonthFests || []);
+  const [supabaseWorldDays, setSupabaseWorldDays] = useState<WorldDay[]>(supabaseMonthWorldDays || []);
   const flatListRef = useRef<FlatList>(null);
   const hasInitialScrolled = useRef(false);
 
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // Get Sunday of the current week (0 is Sunday)
+  const startOfCurrentWeek = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - today.getDay());
+    return d;
+  }, [today]);
+
+  const numDays = useMemo(() => today.getDay() + 1 + 7, [today]);
+
   useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const fetchSupabaseData = async () => {
+      try {
+        const currentMonthName = GREEK_MONTHS[today.getMonth()];
+        const month1 = GREEK_MONTHS[startOfCurrentWeek.getMonth()];
+        const endDay = new Date(startOfCurrentWeek);
+        endDay.setDate(startOfCurrentWeek.getDate() + numDays);
+        const month2 = GREEK_MONTHS[endDay.getMonth()];
 
-    // Get Sunday of the current week (0 is Sunday)
-    const currentDayOfWeek = today.getDay();
-    const startOfCurrentWeek = new Date(today);
-    startOfCurrentWeek.setDate(today.getDate() - currentDayOfWeek);
+        let fests: Fest[] = supabaseMonthFests ? [...supabaseMonthFests] : [];
+        let wDays: WorldDay[] = supabaseMonthWorldDays ? [...supabaseMonthWorldDays] : [];
 
-    // Number of days: From Sunday to today, plus 7 days after today
-    const numDays = currentDayOfWeek + 1 + 7;
+        // Fetch month1 if it's different from the current month (which is what supabaseMonthFests has)
+        if (month1 !== currentMonthName) {
+          const f1 = await getFestsByMonth(month1);
+          fests = [...fests, ...f1];
+          if (globalDaysEnabled) {
+            const w1 = await getWorldDaysByMonth(month1);
+            wDays = [...wDays, ...w1];
+          }
+        }
 
+        // Fetch month2 if it's different from month1 AND different from the current month
+        if (month1 !== month2 && month2 !== currentMonthName) {
+          const f2 = await getFestsByMonth(month2);
+          fests = [...fests, ...f2];
+          if (globalDaysEnabled) {
+            const w2 = await getWorldDaysByMonth(month2);
+            wDays = [...wDays, ...w2];
+          }
+        }
+        
+        setSupabaseFests(fests);
+        setSupabaseWorldDays(wDays);
+      } catch (err) {
+        console.error('Error fetching week supabase data:', err);
+      }
+    };
+
+    fetchSupabaseData();
+  }, [startOfCurrentWeek, numDays, globalDaysEnabled, supabaseMonthFests, supabaseMonthWorldDays, today]);
+
+  const weekData = useMemo<DayInfo[]>(() => {
     const celebrations = getWeekCelebrations(
       startOfCurrentWeek,
       selectedYear || today.getFullYear(),
@@ -254,20 +310,51 @@ export const WeekScreen = () => {
       numDays,
     );
 
-    const weekDays: DayInfo[] = celebrations.map((c, index) => {
+    return celebrations.map((c, index) => {
       const dateObj = new Date(startOfCurrentWeek);
       dateObj.setDate(startOfCurrentWeek.getDate() + index);
 
+      const monthName = GREEK_MONTHS[dateObj.getMonth()];
+      const dayNum = dateObj.getDate();
+      
+      const remoteFest = supabaseFests.find(f => 
+        f.month?.trim() === monthName?.trim() && Number(f.day) === dayNum
+      );
+      const remoteWDs = supabaseWorldDays.filter(w => 
+        w.month?.trim() === monthName?.trim() && Number(w.day) === dayNum
+      );
+
+      let names = c.names;
+      let celebs = c.celebrations;
+      let wds = c.worldDays;
+
+      if (remoteFest) {
+        const remoteNames = remoteFest.names ? (remoteFest.names as string).split(',').map(n => n.trim()) : [];
+        const remoteCelebs = remoteFest.celebrations ? (remoteFest.celebrations as string).split(',').map(c => c.trim()) : [];
+        
+        names = Array.from(new Set([...c.names, ...remoteNames]));
+        celebs = Array.from(new Set([...c.celebrations, ...remoteCelebs]));
+      }
+
+      if (remoteWDs.length > 0) {
+        const titles = remoteWDs.map(w => w.title).filter(Boolean) as string[];
+        if (titles.length > 0) wds = titles;
+      }
+
       return {
         ...c,
+        names,
+        celebrations: celebs,
+        worldDays: wds,
         dateObj,
       };
     });
+  }, [startOfCurrentWeek, numDays, globalDaysEnabled, supabaseFests, supabaseWorldDays, selectedYear, today]);
 
-    setWeekData(weekDays);
-
+  useEffect(() => {
     // Scroll to today only once and without animation
-    if (!hasInitialScrolled.current) {
+    if (!hasInitialScrolled.current && weekData.length > 0) {
+      const currentDayOfWeek = today.getDay();
       setTimeout(() => {
         if (flatListRef.current && currentDayOfWeek !== -1) {
           flatListRef.current.scrollToIndex({
@@ -279,14 +366,7 @@ export const WeekScreen = () => {
         }
       }, 100);
     }
-  }, [
-    globalDaysEnabled,
-    hasPermission,
-    getContactsForNameday,
-    getMyPeopleForNameday,
-    selectedYear,
-    myPeople,
-  ]);
+  }, [weekData, today]);
 
   return (
     <View

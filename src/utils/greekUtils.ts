@@ -103,30 +103,49 @@ export const greeklishToGreek = (str: string): string => {
     .replace(/ /g, '');
 };
 
+const normalizeCache = new Map<string, string>();
 export const normalizeGreekName = (name: string): string => {
   if (!name) return '';
-  return name
+  if (normalizeCache.has(name)) return normalizeCache.get(name)!;
+  const result = name
     .toLowerCase()
     .trim()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Remove accents
     .replace(/ς$/, 'σ'); // Replace final ς with σ for better matching
+  normalizeCache.set(name, result);
+  return result;
 };
 
-export const stripEnding = (str: string) => str.replace(/[ςσ]$/, '');
+const stripCache = new Map<string, string>();
+export const stripEnding = (str: string) => {
+  if (stripCache.has(str)) return stripCache.get(str)!;
+  const result = str.replace(/[ςσ]$/, '');
+  stripCache.set(str, result);
+  return result;
+};
 
+const matchCache = new Map<string, boolean>();
 export const namesMatch = (contactName: string, namedayName: string): boolean => {
+  const key = `${contactName}|${namedayName}`;
+  if (matchCache.has(key)) return matchCache.get(key)!;
+
   let normalizedContact = normalizeGreekName(contactName);
   let normalizedNameday = normalizeGreekName(namedayName);
 
-  if (!normalizedContact || !normalizedNameday) return false;
+  if (!normalizedContact || !normalizedNameday) {
+    matchCache.set(key, false);
+    return false;
+  }
 
   const contactStripped = stripEnding(normalizedContact);
   const namedayStripped = stripEnding(normalizedNameday);
 
   // Exact match (with or without final sigma)
-  if (normalizedContact === normalizedNameday) return true;
-  if (contactStripped === namedayStripped) return true;
+  if (normalizedContact === normalizedNameday || contactStripped === namedayStripped) {
+    matchCache.set(key, true);
+    return true;
+  }
 
   // Check if contact name is within the nameday name (for compound names)
   const contactWords = normalizedContact.split(/\s+/);
@@ -149,7 +168,10 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
     });
   });
 
-  if (wordMatch) return true;
+  if (wordMatch) {
+    matchCache.set(key, true);
+    return true;
+  }
 
   // Check Greeklish matching
   const contactGreeklish = greekToGreeklish(contactName);
@@ -160,6 +182,7 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
     contactGreeklish.replace(/\s+/g, '') ===
     namedayGreeklish.replace(/\s+/g, '')
   ) {
+    matchCache.set(key, true);
     return true;
   }
 
@@ -167,7 +190,7 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
   const contactGreeklishWords = contactGreeklish.split(/\s+/).filter(w => w);
   const namedayGreeklishWords = namedayGreeklish.split(/\s+/).filter(w => w);
 
-  return contactGreeklishWords.some(cWord => {
+  const greeklishMatch = contactGreeklishWords.some(cWord => {
     return namedayGreeklishWords.some(nWord => {
       return (
         cWord === nWord ||
@@ -176,4 +199,7 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
       );
     });
   });
+
+  matchCache.set(key, greeklishMatch);
+  return greeklishMatch;
 };

@@ -22,7 +22,6 @@ export const PROJECT_PATHS = {
   ANDROID_RES: 'android/app/src/main/res',
   IOS_APP_ICONSET: 'ios/nameday/Images.xcassets/AppIcon.appiconset',
   ICON_SOURCE: 'assets/app_icon_source.png',
-  GREEK_DATA: 'data/datanames.tsx',
 };
 
 /**
@@ -42,10 +41,11 @@ export const ASSET_HELPERS = {
 
   /**
    * Returns project absolute paths for tools/scripts
+   * Note: This only works in Node.js environments (like tools/ scripts)
    */
   getProjectAbsolutePath: (subPath: string = '') => {
-    // This is useful for scripts running in node environments
-    const base = process.cwd();
+    // @ts-ignore
+    const base = typeof process !== 'undefined' ? process.cwd() : '';
     return `${base}/${subPath}`;
   }
 };

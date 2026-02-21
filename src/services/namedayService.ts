@@ -1,6 +1,4 @@
-import { Datanames } from '../../data/datanames';
 import { getMovableNamedayEntries } from '../../data/movingCelebrations';
-import { worldDaysJanFeb } from '../../data/worldday';
 
 export const GREEK_MONTHS = [
   'Ιανουάριος',
@@ -50,35 +48,23 @@ export interface NamedayEntry {
 export const findNamedayLocal = (dt: Date): NamedayEntry | undefined => {
   const monthName = GREEK_MONTHS[dt.getMonth()];
   const dayNum = dt.getDate();
-  const staticEntry = Datanames.find(
-    e => e.month === monthName && e.day === dayNum,
-  );
   const movingEntries = getMovableNamedayEntries(dt.getFullYear());
   const movingEntry = movingEntries.find(
     e => e.month === monthName && e.day === dayNum,
   );
 
-  if (!staticEntry && !movingEntry) return undefined;
+  if (!movingEntry) return undefined;
 
   return {
-    names: [...(staticEntry?.names ?? []), ...(movingEntry?.names ?? [])],
+    names: [...(movingEntry?.names ?? [])],
     celebrations: [
-      ...(staticEntry?.celebrations ?? []),
       ...(movingEntry?.celebrations ?? []),
     ],
   };
 };
 
 export const findWorldDayLocal = (dt: Date): string | null => {
-  const monthName = GREEK_MONTHS[dt.getMonth()];
-  const dayNum = dt.getDate();
-  const dayString = `${dayNum} ${monthName}`;
-  // Search for exact match
-  return (
-    worldDaysJanFeb.find(
-      wd => wd.date === dayString || wd.date.includes(dayString),
-    )?.title ?? null
-  );
+  return null;
 };
 
 export const formatDate = (dt: Date): string => {
@@ -117,28 +103,19 @@ export const getYearCelebrations = (year: number): DayCelebrations[] => {
       const dt = new Date(year, m, d);
       const weekday = GREEK_WEEKDAYS[dt.getDay()];
 
-      const staticEntry = Datanames.find(
-        e => e.month === monthName && e.day === d,
-      );
       const movingEntry = movingEntries.find(
         e => e.month === monthName && e.day === d,
-      );
-
-      const dayString = `${d} ${monthName}`;
-      const wdMatches = worldDaysJanFeb.filter(
-        wd => wd.date === dayString || wd.date.includes(dayString),
       );
 
       result.push({
         day: d,
         monthIndex: m,
         weekday: weekday,
-        names: [...(staticEntry?.names ?? []), ...(movingEntry?.names ?? [])],
+        names: [...(movingEntry?.names ?? [])],
         celebrations: [
-          ...(staticEntry?.celebrations ?? []),
           ...(movingEntry?.celebrations ?? []),
         ],
-        worldDays: wdMatches.map(w => w.title),
+        worldDays: [],
         isToday: year === todayYear && m === todayMonth && d === todayDay,
       });
     }
@@ -170,30 +147,19 @@ export const getWeekCelebrations = (
     const monthName = GREEK_MONTHS[m];
     const weekday = GREEK_WEEKDAYS[dt.getDay()];
 
-    const staticEntry = Datanames.find(
-      e => e.month === monthName && e.day === d,
-    );
     const movingEntry = movingEntries.find(
       e => e.month === monthName && e.day === d,
     );
-
-    const dayString = `${d} ${monthName}`;
-    const wdMatches = globalDaysEnabled
-      ? worldDaysJanFeb.filter(
-          wd => wd.date === dayString || wd.date.includes(dayString),
-        )
-      : [];
 
     result.push({
       day: d,
       monthIndex: m,
       weekday: weekday,
-      names: [...(staticEntry?.names ?? []), ...(movingEntry?.names ?? [])],
+      names: [...(movingEntry?.names ?? [])],
       celebrations: [
-        ...(staticEntry?.celebrations ?? []),
         ...(movingEntry?.celebrations ?? []),
       ],
-      worldDays: wdMatches.map(w => w.title),
+      worldDays: [],
       isToday:
         dt.getFullYear() === todayYear && m === todayMonth && d === todayDay,
     });

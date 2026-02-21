@@ -1,13 +1,5 @@
 import supabase from '../../utils/supabase'
-
-export interface Fest {
-  id?: number
-  day?: number
-  month?: string
-  names?: string
-  celebrations?: string
-  [key: string]: any
-}
+import type { Fest } from '../../types/fest'
 
 export async function getAllFests(): Promise<Fest[]> {
   const { data, error } = await supabase.from('fests').select('*')
@@ -19,7 +11,7 @@ export async function getFestsByDayMonth(day: number | string, month: string): P
   console.log(`Querying Supabase for day: ${day} (type: ${typeof day}), month: ${month}`);
   const { data, error } = await supabase
     .from('fests')
-    .select('names, celebrations')
+    .select('day, month, names, celebrations')
     .eq('day', day)
     .eq('month', month)
   

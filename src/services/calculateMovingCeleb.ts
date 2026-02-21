@@ -10,8 +10,8 @@ function orthodoxEaster(year: number): Date {
   const month = Math.floor((d + e + 114) / 31);
   const day = ((d + e + 114) % 31) + 1;
 
-  // Ιουλιανό Πάσχα
-  const julianEaster = new Date(year, month - 1, day);
+  // Ιουλιανό Πάσχα (σε UTC για αποφυγή timezone shifts)
+  const julianEaster = new Date(Date.UTC(year, month - 1, day));
 
   // Ιουλιανό → Γρηγοριανό (1900–2099)
   const gregorianEaster = new Date(julianEaster.getTime() + 13 * 86400000);
@@ -19,19 +19,23 @@ function orthodoxEaster(year: number): Date {
   return gregorianEaster;
 }
 
-function addDays(base: Date, days: number): Date {
-  return new Date(base.getTime() + days * 86400000);
+function addDays(date: Date, days: number): Date {
+  const d = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  ));
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
 }
 
 function georgiosNameDay(year: number): Date {
   const easter = orthodoxEaster(year);
-  const april23 = new Date(year, 3, 23); // μήνες: 0-based
+  const april23 = new Date(Date.UTC(year, 3, 23)); // μήνες: 0-based
 
   if (april23 < easter) {
     // Δευτέρα του Πάσχα
-    const easterMonday = new Date(easter);
-    easterMonday.setDate(easterMonday.getDate() + 1);
-    return easterMonday;
+    return addDays(easter, 1);
   }
 
   return april23;
@@ -39,90 +43,100 @@ function georgiosNameDay(year: number): Date {
 
 export function movableFeasts(year: number): Record<string, Date> {
   const easter = orthodoxEaster(year);
-  // Υπολογισμοί για όλες τις κινητές εορτές
-  const apokreoSunday = addDays(easter, -49); // Κυριακή της Απόκρεω
-  const tyrofagosSunday = addDays(easter, -42); // Κυριακή της Τυροφάγου
-  const tsiknopempti = addDays(easter, -52); // Τσικνοπέμπτη
-  const psychosabbato = addDays(easter, -50); // Ψυχοσάββατο (Σάββατο πριν της Απόκρεω)
-  const firstSalutations = addDays(easter, -43); // Α' Χαιρετισμοί (πρώτη Παρασκευή Σαρακοστής)
-  const orthodoxySunday = addDays(easter, -42); // Κυριακή της Ορθοδοξίας (Α' Κυριακή Νηστειών)
-  const secondSalutations = addDays(easter, -36); // Β' Χαιρετισμοί (δεύτερη Παρασκευή Σαρακοστής)
-  const secondLentSunday = addDays(easter, -35); // Β' Κυριακή Νηστειών
-  const thirdSalutations = addDays(easter, -29); // Γ' Χαιρετισμοί (τρίτη Παρασκευή Σαρακοστής)
-  const venerationSunday = addDays(easter, -28); // Κυριακή Σταυροπροσκυνήσεως (Γ' Κυριακή Νηστειών)
-  const fourthSalutations = addDays(easter, -22); // Δ' Χαιρετισμοί (τέταρτη Παρασκευή Σαρακοστής)
-  const fourthLentSunday = addDays(easter, -21); // Δ' Κυριακή Νηστειών
-  const akathistosHymn = addDays(easter, -15); // Ακάθιστος Ύμνος (πέμπτη Παρασκευή Σαρακοστής)
-  const fifthLentSunday = addDays(easter, -14); // Ε' Κυριακή Νηστειών
-  const lazarusSaturday = addDays(easter, -8); // Σάββατο του Λαζάρου
-  const palmsSunday = addDays(easter, -7); // Κυριακή των Βαΐων
-  const holyMonday = addDays(easter, -6); // Μεγάλη Δευτέρα
-  const holyTuesday = addDays(easter, -5); // Μεγάλη Τρίτη
-  const holyWednesday = addDays(easter, -4); // Μεγάλη Τετάρτη
-  const holyThursday = addDays(easter, -3); // Μεγάλη Πέμπτη
-  const holyFriday = addDays(easter, -2); // Μεγάλη Παρασκευή
-  const holySaturday = addDays(easter, -1); // Μεγάλο Σάββατο
-  const pascha = easter; // Πάσχα
-  const thomasSunday = addDays(easter, 7); // Κυριακή του Θωμά
-  const thirdOfDiakainisimos = addDays(easter, 10); // 3η Διακαινησίμου (Τετάρτη μετά το Πάσχα)
-  const zoodochosPigi = addDays(easter, 12); // Ζωοδόχος Πηγή (Παρασκευή μετά το Πάσχα)
-  const mayDay = new Date(year, 4, 1); // Εργατική Πρωτομαγιά
-  const georgios = georgiosNameDay(year); // Άγιος Γεώργιος
-  
-  // Γιορτή της Μητέρας: 2η Κυριακή Μαΐου
-  let mothersDay = new Date(year, 4, 1);
-  let sundayCount = 0;
-  for (let i = 0; i < 31; i++) {
-    const d = new Date(year, 4, 1 + i);
-    if (d.getMonth() !== 4) break;
-    if (d.getDay() === 0) {
-      sundayCount++;
-      if (sundayCount === 2) {
-        mothersDay = d;
-        break;
-      }
-    }
-  }
-  const ascension = addDays(easter, 40); // Ανάληψη
-  const pentecost = addDays(easter, 50); // Πεντηκοστή
-  const holySpirit = addDays(easter, 51); // Αγίου Πνεύματος
-  const allSaints = addDays(easter, 56); // Αγίων Πάντων
+  const movable: Record<string, Date> = {};
 
-  return {
-    Τσικνοπέμπτη: tsiknopempti,
-    Ψυχοσάββατο: psychosabbato,
-    'Κυριακή της Απόκρεω': apokreoSunday,
-    Τυροφάγος: tyrofagosSunday,
-    'Αʼ Χαιρετισμοί': firstSalutations,
-    'Κυριακή της Ορθοδοξίας': orthodoxySunday,
-    'Βʼ Χαιρετισμοί': secondSalutations,
-    'Βʼ Κυριακή των Νηστειών': secondLentSunday,
-    'Γʼ Χαιρετισμοί': thirdSalutations,
-    'Κυριακή της Σταυροπροσκυνήσεως': venerationSunday,
-    'Δʼ Χαιρετισμοί': fourthSalutations,
-    'Δʼ Κυριακή των Νηστειών': fourthLentSunday,
-    'Ακάθιστος Ύμνος': akathistosHymn,
-    'Εʼ Κυριακή των Νηστειών': fifthLentSunday,
-    'Σάββατο του Λαζάρου': lazarusSaturday,
-    'Κυριακή των Βαΐων': palmsSunday,
-    'Μεγάλη Δευτέρα': holyMonday,
-    'Μεγάλη Τρίτη': holyTuesday,
-    'Μεγάλη Τετάρτη': holyWednesday,
-    'Μεγάλη Πέμπτη': holyThursday,
-    'Μεγάλη Παρασκευή': holyFriday,
-    'Μεγάλο Σάββατο': holySaturday,
-    Πάσχα: pascha,
-    'Κυριακή του Θωμά': thomasSunday,
-    '3η Διακαινησίμου': thirdOfDiakainisimos,
-    'Ζωοδόχος Πηγή': zoodochosPigi,
-    'Εργατική Πρωτομαγιά': mayDay,
-    'Γιορτή της Μητέρας': mothersDay,
-    'Άγιος Γεώργιος': georgios,
-    Ανάληψη: ascension,
-    Πεντηκοστή: pentecost,
-    'Αγίου Πνεύματος': holySpirit,
-    'Αγίων Πάντων': allSaints,
-  };
+  // Πάσχα
+  movable['Πάσχα'] = easter;
+
+  // Κυριακή των Βαΐων (1 εβδομάδα πριν)
+  movable['Κυριακή των Βαΐων'] = addDays(easter, -7);
+
+  // Σάββατο του Λαζάρου (8 ημέρες πριν)
+  movable['Σάββατο του Λαζάρου'] = addDays(easter, -8);
+
+  // Μεγάλη Εβδομάδα
+  movable['Μεγάλη Δευτέρα'] = addDays(easter, -6);
+  movable['Μεγάλη Τρίτη'] = addDays(easter, -5);
+  movable['Μεγάλη Τετάρτη'] = addDays(easter, -4);
+  movable['Μεγάλη Πέμπτη'] = addDays(easter, -3);
+  movable['Μεγάλη Παρασκευή'] = addDays(easter, -2);
+  movable['Μεγάλο Σάββατο'] = addDays(easter, -1);
+
+  // Κυριακή του Θωμά (1 εβδομάδα μετά)
+  movable['Κυριακή του Θωμά'] = addDays(easter, 7);
+
+  // 3η Διακαινησίμου (Τετάρτη μετά το Πάσχα)
+  movable['3η Διακαινησίμου'] = addDays(easter, 3);
+
+  // Ζωοδόχος Πηγή (Παρασκευή Διακαινησίμου)
+  movable['Ζωοδόχος Πηγή'] = addDays(easter, 5);
+
+  // Ανάληψη (40 ημέρες μετά)
+  movable['Ανάληψη'] = addDays(easter, 39);
+
+  // Πεντηκοστή (50 ημέρες μετά)
+  movable['Πεντηκοστή'] = addDays(easter, 49);
+
+  // Αγίου Πνεύματος (Δευτέρα Πεντηκοστής)
+  movable['Αγίου Πνεύματος'] = addDays(easter, 50);
+
+  // Αγίων Πάντων (1η Κυριακή μετά την Πεντηκοστή)
+  movable['Αγίων Πάντων'] = addDays(easter, 56);
+
+  // 🔥 Αποκριά – Σαρακοστή
+  const cleanMonday = addDays(easter, -48);
+  movable['Καθαρά Δευτέρα'] = cleanMonday;
+
+  // Τυροφάγος (Κυριακή πριν την Καθαρά Δευτέρα)
+  movable['Τυροφάγος'] = addDays(cleanMonday, -1);
+
+  // Κυριακή της Απόκρεω (1 εβδομάδα πριν την Τυροφάγο)
+  movable['Κυριακή της Απόκρεω'] = addDays(cleanMonday, -8);
+
+  // Ψυχοσάββατο (Σάββατο πριν την Απόκρεω)
+  movable['Ψυχοσάββατο'] = addDays(cleanMonday, -9);
+
+  // Τσικνοπέμπτη (Πέμπτη πριν την Απόκρεω)
+  movable['Τσικνοπέμπτη'] = addDays(cleanMonday, -12);
+
+  // ✝ Χαιρετισμοί & Κυριακές Νηστειών
+  movable['Κυριακή της Ορθοδοξίας'] = addDays(easter, -42);
+
+  // Αʼ Χαιρετισμοί (Παρασκευή της 1ης εβδομάδας)
+  movable['Αʼ Χαιρετισμοί'] = addDays(easter, -44);
+
+  // Βʼ Χαιρετισμοί
+  movable['Βʼ Χαιρετισμοί'] = addDays(easter, -37);
+  movable['Βʼ Κυριακή των Νηστειών'] = addDays(easter, -35);
+
+  // Γʼ Χαιρετισμοί
+  movable['Γʼ Χαιρετισμοί'] = addDays(easter, -30);
+  movable['Κυριακή της Σταυροπροσκυνήσεως'] = addDays(easter, -28);
+
+  // Δʼ Χαιρετισμοί
+  movable['Δʼ Χαιρετισμοί'] = addDays(easter, -23);
+  movable['Δʼ Κυριακή των Νηστειών'] = addDays(easter, -21);
+
+  // Ακάθιστος Ύμνος (Παρασκευή 5ης εβδομάδας)
+  movable['Ακάθιστος Ύμνος'] = addDays(easter, -16);
+
+  // Εʼ Κυριακή των Νηστειών
+  movable['Εʼ Κυριακή των Νηστειών'] = addDays(easter, -14);
+
+  // 🌼 Σταθερές αλλά “κινητές” ως προς εβδομάδα
+  // Γιορτή της Μητέρας (Δεύτερη Κυριακή Μαΐου)
+  const mothersDay = new Date(Date.UTC(year, 4, 1)); // Μάιος
+  while (mothersDay.getUTCDay() !== 0) mothersDay.setUTCDate(mothersDay.getUTCDate() + 1);
+  mothersDay.setUTCDate(mothersDay.getUTCDate() + 7);
+  movable['Γιορτή της Μητέρας'] = mothersDay;
+
+  // Εργατική Πρωτομαγιά
+  movable['Εργατική Πρωτομαγιά'] = new Date(Date.UTC(year, 4, 1));
+
+  // Άγιος Γεώργιος (Ειδικός κανόνας)
+  movable['Άγιος Γεώργιος'] = georgiosNameDay(year);
+
+  return movable;
 }
 
 // Επιστρέφει την εορτή για συγκεκριμένη ημερομηνία αν υπάρχει
@@ -130,23 +144,23 @@ export function getMovingFeastForDate(date: Date): string | null {
   const year = date.getFullYear();
   const feasts = movableFeasts(year);
 
-  const targetDate = new Date(
+  const targetDate = new Date(Date.UTC(
     date.getFullYear(),
     date.getMonth(),
     date.getDate(),
-  );
+  ));
 
   for (const [name, feastDate] of Object.entries(feasts)) {
-    const compareDate = new Date(
-      feastDate.getFullYear(),
-      feastDate.getMonth(),
-      feastDate.getDate(),
-    );
+    const compareDate = new Date(Date.UTC(
+      feastDate.getUTCFullYear(),
+      feastDate.getUTCMonth(),
+      feastDate.getUTCDate(),
+    ));
 
     if (
-      compareDate.getDate() === targetDate.getDate() &&
-      compareDate.getMonth() === targetDate.getMonth() &&
-      compareDate.getFullYear() === targetDate.getFullYear()
+      compareDate.getUTCDate() === targetDate.getUTCDate() &&
+      compareDate.getUTCMonth() === targetDate.getUTCMonth() &&
+      compareDate.getUTCFullYear() === targetDate.getUTCFullYear()
     ) {
       return name;
     }
