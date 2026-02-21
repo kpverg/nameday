@@ -400,8 +400,12 @@ export const TotalCelebrationsScreen = ({
   const now = React.useMemo(() => new Date(), []);
   
   // Use state for the month data so we can update it when month changes
-  const [supabaseMonthData, setSupabaseMonthData] = useState<Fest[]>(initialSupabaseFests || []);
-  const [supabaseWorldDayData, setSupabaseWorldDayData] = useState<WorldDay[]>(initialSupabaseWorldDays || []);
+  const [supabaseMonthData, setSupabaseMonthData] = useState<Record<number, Fest[]>>({
+    [now.getMonth()]: initialSupabaseFests || []
+  });
+  const [supabaseWorldDayData, setSupabaseWorldDayData] = useState<Record<number, WorldDay[]>>({
+    [now.getMonth()]: initialSupabaseWorldDays || []
+  });
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
   );
@@ -410,15 +414,15 @@ export const TotalCelebrationsScreen = ({
   // When props change (initial load), update state
   useEffect(() => {
     if (initialSupabaseFests && initialSupabaseFests.length > 0) {
-      setSupabaseMonthData(initialSupabaseFests);
+      setSupabaseMonthData(prev => ({ ...prev, [now.getMonth()]: initialSupabaseFests }));
     }
-  }, [initialSupabaseFests]);
+  }, [initialSupabaseFests, now]);
 
   useEffect(() => {
     if (initialSupabaseWorldDays && initialSupabaseWorldDays.length > 0) {
-      setSupabaseWorldDayData(initialSupabaseWorldDays);
+      setSupabaseWorldDayData(prev => ({ ...prev, [now.getMonth()]: initialSupabaseWorldDays }));
     }
-  }, [initialSupabaseWorldDays]);
+  }, [initialSupabaseWorldDays, now]);
 
   const flatListRef = useRef<FlatList>(null);
   const lastScrollTime = useRef(0);
@@ -429,33 +433,40 @@ export const TotalCelebrationsScreen = ({
     return getYearCelebrations(selectedYear || now.getFullYear());
   }, [selectedYear, now]);
 
-  // Fetch data when month changes
+  // Fetch data when month changes or prefetch adjacent months
   useEffect(() => {
-    const fetchNewMonthData = async () => {
-      const monthName = GREEK_MONTHS[displayMonthIndex];
-      console.log(`Month changed to ${monthName}. Fetching Supabase data...`);
+    const fetchMonthData = async (monthIdx: number) => {
+      if (supabaseMonthData[monthIdx]) return; // Already fetched
+
+      const monthName = GREEK_MONTHS[monthIdx];
+      console.log(`Fetching Supabase data for ${monthName}...`);
       try {
         const newData = await getFestsByMonth(monthName);
-        if (newData && newData.length > 0) {
-          setSupabaseMonthData(newData);
-        } else {
-          setSupabaseMonthData([]);
-        }
+        setSupabaseMonthData(prev => ({ ...prev, [monthIdx]: newData || [] }));
 
         // Fetch world days if enabled
         if (globalDaysEnabled) {
           const wdData = await getWorldDaysByMonth(monthName);
-          setSupabaseWorldDayData(wdData);
-        } else {
-          setSupabaseWorldDayData([]);
+          setSupabaseWorldDayData(prev => ({ ...prev, [monthIdx]: wdData || [] }));
         }
       } catch (error) {
-        console.error('Failed to fetch month data:', error);
+        console.error(`Failed to fetch data for ${monthName}:`, error);
       }
     };
 
-    fetchNewMonthData();
-  }, [displayMonthIndex, globalDaysEnabled]);
+    // Fetch current month
+    fetchMonthData(displayMonthIndex);
+
+    // Prefetch next month
+    if (displayMonthIndex < 11) {
+      fetchMonthData(displayMonthIndex + 1);
+    }
+    
+    // Prefetch previous month
+    if (displayMonthIndex > 0) {
+      fetchMonthData(displayMonthIndex - 1);
+    }
+  }, [displayMonthIndex, globalDaysEnabled, supabaseMonthData]);
 
   // Filter for the current display month and merge with Supabase data
   const daysData = React.useMemo(() => {
@@ -466,10 +477,10 @@ export const TotalCelebrationsScreen = ({
 
     // Filter Supabase data for this month (just in case)
     // We trim to handle potential invisible spaces from DB
-    const currentMonthFests = supabaseMonthData?.filter(f => 
+    const currentMonthFests = supabaseMonthData[displayMonthIndex]?.filter(f => 
       f.month?.trim() === monthName?.trim()
     ) || [];
-    const currentMonthWorldDays = supabaseWorldDayData?.filter(w => 
+    const currentMonthWorldDays = supabaseWorldDayData[displayMonthIndex]?.filter(w => 
       w.month?.trim() === monthName?.trim()
     ) || [];
 
@@ -530,10 +541,9 @@ export const TotalCelebrationsScreen = ({
     } else if (daysData.length > 0) {
       // For any other month, jump to the start of the month
       setTimeout(() => {
-        flatListRef.current?.scrollToIndex({
-          index: 0,
+        flatListRef.current?.scrollToOffset({
+          offset: 0,
           animated: false,
-          viewPosition: 0,
         });
       }, 100);
     }
