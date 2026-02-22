@@ -3,9 +3,11 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 interface SplashLoadingProps {
   onComplete: () => void;
+  primaryColor?: string;
+  textColor?: string;
 }
 
-export default function SplashLoading({ onComplete }: SplashLoadingProps) {
+export default function SplashLoading({ onComplete, primaryColor = '#1E6AC7', textColor = '#374151' }: SplashLoadingProps) {
   // Simulate loading time
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -17,9 +19,9 @@ export default function SplashLoading({ onComplete }: SplashLoadingProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Εορτολόγιο</Text>
-      <ActivityIndicator size="large" color="#1E6AC7" style={styles.spinner} />
-      <Text style={styles.subtitle}>Φόρτωση...</Text>
+      <Text style={[styles.title, { color: primaryColor }]}>Εορτολόγιο</Text>
+      <ActivityIndicator size="large" color={primaryColor} style={styles.spinner} />
+      <Text style={[styles.subtitle, { color: textColor }]}>Φόρτωση...</Text>
     </View>
   );
 }
@@ -34,7 +36,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1E6AC7',
     marginBottom: 20,
   },
   spinner: {
@@ -42,6 +43,5 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
   },
 });

@@ -44,6 +44,9 @@ const DayCard = React.memo(({
   getMyPeopleForNameday,
   myPeopleData,
   hasPermission,
+  primaryColor,
+  primaryColorLight,
+  addAlpha,
 }: {
   item: DayInfo;
   darkMode?: boolean;
@@ -52,21 +55,25 @@ const DayCard = React.memo(({
   getMyPeopleForNameday: (names: string[]) => any[];
   myPeopleData: any[];
   hasPermission: boolean;
+  primaryColor: string;
+  primaryColorLight: string;
+  addAlpha: (color: string, alpha: number) => string;
 }) => {
-  const monthGenitive = GREEK_MONTHS_GENITIVE[item.monthIndex];
-  const displayDate = `${String(item.day).padStart(2, '0')} ${monthGenitive}`;
+  const { isToday, weekday, names, celebrations, worldDays, dateObj, day, monthIndex } = item;
+  const monthGenitive = GREEK_MONTHS_GENITIVE[monthIndex];
+  const displayDate = `${String(day).padStart(2, '0')} ${monthGenitive}`;
 
   const contacts = useMemo(() => {
-    return hasPermission && item.names.length > 0
-      ? getContactsForNameday(item.names)
+    return hasPermission && names.length > 0
+      ? getContactsForNameday(names)
       : [];
-  }, [hasPermission, item.names, getContactsForNameday]);
+  }, [hasPermission, names, getContactsForNameday]);
 
   const myPeople = useMemo(() => {
     // Get my people from nameday
-    const namedayMembers = item.names.length > 0 ? getMyPeopleForNameday(item.names) : [];
+    const namedayMembers = names.length > 0 ? getMyPeopleForNameday(names) : [];
     // Get my people from custom birthday/date
-    const customMembers = getMyPeopleCelebratingOnDate(item.dateObj, myPeopleData);
+    const customMembers = getMyPeopleCelebratingOnDate(dateObj, myPeopleData);
 
     // Merge and remove duplicates
     const merged = [...namedayMembers];
@@ -77,34 +84,69 @@ const DayCard = React.memo(({
     });
 
     return merged;
-  }, [item.names, item.dateObj, myPeopleData, getMyPeopleForNameday]);
+  }, [names, dateObj, myPeopleData, getMyPeopleForNameday]);
 
-  const headerTextColor = item.isToday ? '#0B1220' : effectiveTextColor;
+  const headerTextColor = isToday
+    ? primaryColor
+    : darkMode
+    ? primaryColorLight
+    : primaryColor;
   const headerTextStyle = useMemo(() => ({ color: headerTextColor }), [headerTextColor]);
 
   const sectionTitleStyle = useMemo(() => [
     styles.sectionTitle,
-    darkMode && !item.isToday && styles.sectionTitleDark,
-    item.isToday ? styles.textBlack : styles.textBlue
-  ], [darkMode, item.isToday]);
+    darkMode && !isToday && styles.sectionTitleDark,
+    {
+      color: isToday
+        ? primaryColor
+        : darkMode
+        ? primaryColorLight
+        : primaryColor,
+    },
+  ], [darkMode, isToday, primaryColor, primaryColorLight]);
 
   const textColorStyle = useMemo(() => ({
-    color: item.isToday ? '#0B1220' : effectiveTextColor
-  }), [item.isToday, effectiveTextColor]);
+    color: effectiveTextColor
+  }), [effectiveTextColor]);
+
+  const dynamicContactItemStyle = useMemo(() => ({
+    backgroundColor: darkMode ? '#374151' : addAlpha(primaryColor, 0.08),
+    borderColor: addAlpha(primaryColor, 0.15),
+    borderWidth: 1,
+  }), [darkMode, primaryColor, addAlpha]);
 
   return (
     <View
       style={[
         styles.dayCard,
-        darkMode && !item.isToday && styles.dayCardDark,
-        item.isToday && styles.dayCardToday,
+        {
+          backgroundColor: isToday 
+            ? addAlpha(primaryColor, darkMode ? 0.2 : 0.15) 
+            : (darkMode ? '#1A2332' : addAlpha(primaryColor, 0.05)),
+          borderColor: isToday 
+            ? primaryColor 
+            : (darkMode ? '#374151' : addAlpha(primaryColor, 0.15)),
+          borderWidth: 1,
+        },
       ]}
     >
       <View style={styles.dayHeader}>
-        <Text style={[styles.dayName, item.isToday && styles.dayNameToday, headerTextStyle]}>
-          {item.weekday}
+        <Text
+          style={[
+            styles.dayName,
+            isToday && { color: primaryColor },
+            headerTextStyle,
+          ]}
+        >
+          {weekday}
         </Text>
-        <Text style={[styles.dayDate, item.isToday && styles.dayDateToday, headerTextStyle]}>
+        <Text
+          style={[
+            styles.dayDate,
+            isToday && { color: primaryColor, fontWeight: '600' },
+            headerTextStyle,
+          ]}
+        >
           {displayDate}
         </Text>
       </View>
@@ -113,32 +155,32 @@ const DayCard = React.memo(({
         <Text style={sectionTitleStyle}>
           Ονόματα:
         </Text>
-        <Text style={[styles.namesText, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
-          {item.names.length > 0 && item.names[0] !== 'NULL' ? item.names.join(', ') : '—'}
+        <Text style={[styles.namesText, darkMode && !isToday && styles.namesTextDark, textColorStyle]}>
+          {names.length > 0 && names[0] !== 'NULL' ? names.join(', ') : '—'}
         </Text>
       </View>
 
-      {item.celebrations.length > 0 && item.celebrations[0] !== 'NULL' && (
+      {celebrations.length > 0 && celebrations[0] !== 'NULL' && (
         <View style={styles.section}>
           <Text style={sectionTitleStyle}>
             Εορτές:
           </Text>
-          {item.celebrations.map((celebration, index) => (
-            <Text key={index} style={[styles.celebrationText, darkMode && !item.isToday && styles.celebrationTextDark, textColorStyle]}>
+          {celebrations.map((celebration, index) => (
+            <Text key={index} style={[styles.celebrationText, darkMode && !isToday && styles.celebrationTextDark, textColorStyle]}>
               • {celebration}
             </Text>
           ))}
         </View>
       )}
 
-      {item.worldDays.length > 0 && (
+      {worldDays.length > 0 && (
         <View style={styles.section}>
           <Text style={sectionTitleStyle}>
             Παγκόσμιες ημέρες:
           </Text>
-          {item.worldDays.map((day, index) => (
-            <Text key={index} style={[styles.celebrationText, darkMode && !item.isToday && styles.celebrationTextDark, textColorStyle]}>
-              • {day}
+          {worldDays.map((wd, index) => (
+            <Text key={index} style={[styles.celebrationText, darkMode && !isToday && styles.celebrationTextDark, textColorStyle]}>
+              • {wd}
             </Text>
           ))}
         </View>
@@ -151,8 +193,8 @@ const DayCard = React.memo(({
           </Text>
           <View style={styles.contactsRow}>
             {contacts.map((contact) => (
-              <View key={contact.recordID} style={styles.contactItem}>
-                <Text style={[styles.contactName, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
+              <View key={contact.recordID} style={[styles.contactItem, dynamicContactItemStyle]}>
+                <Text style={[styles.contactName, darkMode && !isToday && styles.namesTextDark, textColorStyle]}>
                   {contact.displayName}
                 </Text>
                 {contact.phoneNumbers && contact.phoneNumbers.length > 0 && (
@@ -161,7 +203,7 @@ const DayCard = React.memo(({
                       <Ionicons name="call" size={14} color="#10B981" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => Linking.openURL(`sms:${contact.phoneNumbers[0].number}`)} style={styles.actionButton}>
-                      <Ionicons name="mail" size={14} color="#3B82F6" />
+                      <Ionicons name="mail" size={14} color={primaryColor} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -180,7 +222,7 @@ const DayCard = React.memo(({
             {myPeople.map((member: any) => (
               <TouchableOpacity
                 key={member.id}
-                style={styles.contactItem}
+                style={[styles.contactItem, dynamicContactItemStyle]}
                 onPress={() => {
                   const buttons = [
                     ...(member.phoneNumber
@@ -194,7 +236,7 @@ const DayCard = React.memo(({
                   Alert.alert(formatMyPersonCelebration(member), 'Επιλέξτε ενέργεια:', buttons, { cancelable: true });
                 }}
               >
-                <Text style={[styles.contactName, darkMode && !item.isToday && styles.namesTextDark, textColorStyle]}>
+                <Text style={[styles.contactName, darkMode && !isToday && styles.namesTextDark, textColorStyle]}>
                   {formatMyPersonCelebration(member)}
                 </Text>
                 {member.phoneNumber && (
@@ -203,7 +245,7 @@ const DayCard = React.memo(({
                       <Ionicons name="call" size={14} color="#10B981" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => Linking.openURL(`sms:${member.phoneNumber}`)} style={styles.actionButton}>
-                      <Ionicons name="mail" size={14} color="#3B82F6" />
+                      <Ionicons name="mail" size={14} color={primaryColor} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -213,7 +255,7 @@ const DayCard = React.memo(({
         </View>
       )}
 
-      {item.names.length === 0 && item.celebrations.length === 0 && item.worldDays.length === 0 && (
+      {names.length === 0 && celebrations.length === 0 && worldDays.length === 0 && (
         <Text style={styles.noData}>Δεν υπάρχουν αναγραφές</Text>
       )}
     </View>
@@ -233,6 +275,9 @@ export const WeekScreen = ({
     backgroundColor,
     effectiveTextColor,
     selectedYear,
+    primaryColor,
+    primaryColorLight,
+    addAlpha,
   } = useAppContext();
   const {
     hasPermission,
@@ -407,6 +452,9 @@ export const WeekScreen = ({
             getMyPeopleForNameday={getMyPeopleForNameday}
             myPeopleData={myPeople}
             hasPermission={hasPermission}
+            primaryColor={primaryColor}
+            primaryColorLight={primaryColorLight}
+            addAlpha={addAlpha}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -424,48 +472,33 @@ export const WeekScreen = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingTop: 20,
   },
   containerDark: {
-    backgroundColor: '#111827',
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 6,
   },
   titleDark: {
-    color: '#F3F4F6',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 20,
   },
   subtitleDark: {
-    color: '#9CA3AF',
   },
   weekContent: {
     marginBottom: 20,
   },
   dayCard: {
-    backgroundColor: '#F9FAFB',
-    borderLeftWidth: 4,
-    borderLeftColor: '#1E6AC7',
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 4,
+    padding: 14,
+    marginBottom: 16,
+    borderRadius: 12,
   },
   dayCardDark: {
-    backgroundColor: '#1F2937',
-    borderLeftColor: '#60A5FA',
-  },
-  dayCardToday: {
-    backgroundColor: '#DBEAFE',
-    borderLeftColor: '#0EA5E9',
   },
   dayHeader: {
     marginBottom: 12,
@@ -473,25 +506,14 @@ const styles = StyleSheet.create({
   dayName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E6AC7',
   },
   dayNameDark: {
-    color: '#60A5FA',
-  },
-  dayNameToday: {
-    color: '#0EA5E9',
   },
   dayDate: {
     fontSize: 12,
-    color: '#6b7280',
     marginTop: 2,
   },
   dayDateDark: {
-    color: '#9CA3AF',
-  },
-  dayDateToday: {
-    color: '#0284C7',
-    fontWeight: '600',
   },
   section: {
     marginBottom: 10,
@@ -504,10 +526,9 @@ const styles = StyleSheet.create({
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
     paddingVertical: 3,
-    paddingHorizontal: 6,
-    borderRadius: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     marginRight: 6,
     marginBottom: 4,
   },
@@ -534,39 +555,26 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
     marginBottom: 4,
   },
   sectionTitleDark: {
-    color: '#9CA3AF',
   },
   namesText: {
     fontSize: 13,
-    color: '#374151',
     fontWeight: '500',
   },
   namesTextDark: {
-    color: '#E5E7EB',
   },
   celebrationText: {
     fontSize: 13,
-    color: '#374151',
     marginBottom: 4,
     marginLeft: 4,
   },
   celebrationTextDark: {
-    color: '#E5E7EB',
   },
   noData: {
     fontSize: 13,
-    color: '#9CA3AF',
     fontStyle: 'italic',
-  },
-  textBlack: {
-    color: '#0B1220',
-  },
-  textBlue: {
-    color: '#1E6AC7',
   },
   listContent: {
     paddingBottom: 20,

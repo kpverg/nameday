@@ -21,8 +21,14 @@ import { useAppContext } from '../AppContext';
 
 export default function MyPeopleScreen() {
   const { searchContactsByGreeklish, refreshMyPeople } = useContacts();
-  const { effectiveTextColor, darkModeEnabled } =
-    useAppContext();
+  const { 
+    effectiveTextColor, 
+    darkModeEnabled, 
+    primaryColor,
+    primaryColorLight,
+    addAlpha,
+    backgroundColor
+  } = useAppContext();
 
   const [showModal, setShowModal] = useState(false);
   const [groupName, setGroupName] = useState('');
@@ -85,7 +91,7 @@ export default function MyPeopleScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: darkModeEnabled ? '#0B1220' : '#F2F4F7' }}>
+    <View style={{ flex: 1, backgroundColor: darkModeEnabled ? '#0B1220' : backgroundColor }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.container}
@@ -98,7 +104,7 @@ export default function MyPeopleScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.addButton,
-            { backgroundColor: '#1E6AC7', opacity: pressed ? 0.7 : 1 },
+            { backgroundColor: primaryColor, opacity: pressed ? 0.7 : 1 },
           ]}
           onPress={() => {
             console.log('[MyPeopleScreen] Add Group button pressed (Pressable)');
@@ -117,13 +123,13 @@ export default function MyPeopleScreen() {
           <View
             style={[
               styles.emptyCard,
-              { backgroundColor: darkModeEnabled ? '#1A2332' : '#F9FAFB' },
+              { backgroundColor: darkModeEnabled ? '#1A2332' : addAlpha(primaryColor, 0.05) },
             ]}
           >
             <Ionicons
               name="people-outline"
               size={48}
-              color={darkModeEnabled ? '#4B5563' : '#9CA3AF'}
+              color={darkModeEnabled ? primaryColorLight : primaryColor}
             />
             <Text
               style={[
@@ -151,7 +157,7 @@ export default function MyPeopleScreen() {
               styles.groupCard,
               {
                 backgroundColor: darkModeEnabled ? '#1A2332' : '#FFFFFF',
-                borderColor: darkModeEnabled ? '#374151' : '#E5E7EB',
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.2),
               },
             ]}
           >
@@ -160,7 +166,7 @@ export default function MyPeopleScreen() {
                 <Ionicons
                   name="heart"
                   size={24}
-                  color={darkModeEnabled ? '#F87171' : '#E11D48'}
+                  color={primaryColor}
                   style={styles.groupIcon}
                 />
                 <View>
@@ -197,7 +203,7 @@ export default function MyPeopleScreen() {
                   }}
                   style={styles.iconBtn}
                 >
-                  <Ionicons name="pencil" size={18} color="#1E6AC7" />
+                  <Ionicons name="pencil" size={18} color={primaryColor} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -234,14 +240,14 @@ export default function MyPeopleScreen() {
                   key={m.id}
                   style={[
                     styles.memberRowMain,
-                    { backgroundColor: darkModeEnabled ? '#0B1220' : '#F9FAFB' },
+                    { backgroundColor: darkModeEnabled ? '#0B1220' : addAlpha(primaryColor, 0.08) },
                   ]}
                 >
                   <View style={styles.memberInfo}>
                     <Ionicons
                       name="person-circle-outline"
                       size={20}
-                      color={darkModeEnabled ? '#60A5FA' : '#3B82F6'}
+                      color={primaryColor}
                     />
                     <View style={styles.memberTextContainer}>
                       <Text
@@ -272,7 +278,7 @@ export default function MyPeopleScreen() {
         transparent={false}
         onRequestClose={() => setShowModal(false)}
       >
-        <View style={{ flex: 1, backgroundColor: darkModeEnabled ? '#0B1220' : '#F2F4F7' }}>
+        <View style={{ flex: 1, backgroundColor: darkModeEnabled ? '#0B1220' : backgroundColor }}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -332,7 +338,13 @@ export default function MyPeopleScreen() {
                     setSelectedPersonContact(s);
                     setAssocSuggestions([]);
                   }}
-                  style={styles.suggestionItem}
+                  style={[
+                    styles.suggestionItem,
+                    {
+                      backgroundColor: darkModeEnabled ? '#1F2937' : '#FFFFFF',
+                      borderBottomColor: darkModeEnabled ? '#374151' : '#E5E7EB',
+                    },
+                  ]}
                 >
                   <Text style={{ color: effectiveTextColor }}>
                     {s.displayName}
@@ -349,7 +361,11 @@ export default function MyPeopleScreen() {
                 <View
                   style={[
                     styles.selectedContactBox,
-                    { backgroundColor: darkModeEnabled ? '#1A2332' : '#E8F5E9' },
+                    { 
+                      backgroundColor: darkModeEnabled 
+                        ? '#1A2332' 
+                        : addAlpha(primaryColor, 0.1) 
+                    },
                   ]}
                 >
                   <Text style={[styles.selectedContactText, { color: effectiveTextColor }]}>
@@ -390,7 +406,13 @@ export default function MyPeopleScreen() {
                   <TouchableOpacity
                     key={r}
                     onPress={() => setMemberRelation(r)}
-                    style={[styles.relationBtn, memberRelation === r && styles.relationBtnActive]}
+                    style={[
+                      styles.relationBtn,
+                      memberRelation === r && {
+                        backgroundColor: primaryColor,
+                        borderColor: primaryColor,
+                      },
+                    ]}
                   >
                     <Text
                       style={
@@ -422,7 +444,7 @@ export default function MyPeopleScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.addMemberBtn,
-                  { backgroundColor: '#1E6AC7', opacity: pressed ? 0.7 : 1 },
+                  { backgroundColor: primaryColor, opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => {
                   if (!memberName.trim()) {
@@ -455,7 +477,14 @@ export default function MyPeopleScreen() {
                       key={m.id}
                       style={[
                         styles.memberBox,
-                        { backgroundColor: darkModeEnabled ? '#1A2332' : '#F9FAFB' },
+                        {
+                          backgroundColor: darkModeEnabled
+                            ? '#1A2332'
+                            : addAlpha(primaryColor, 0.05),
+                          borderColor: darkModeEnabled
+                            ? '#374151'
+                            : addAlpha(primaryColor, 0.1),
+                        },
                       ]}
                     >
                       <View style={styles.memberBoxContent}>
@@ -489,7 +518,7 @@ export default function MyPeopleScreen() {
                 style={({ pressed }) => [
                   styles.saveButton,
                   styles.mt16,
-                  { backgroundColor: '#1E6AC7', opacity: pressed ? 0.7 : 1 },
+                  { backgroundColor: primaryColor, opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => {
                   if (!groupName.trim()) {
@@ -566,7 +595,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   addButton: {
-    backgroundColor: '#1E6AC7',
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -736,8 +764,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   relationBtnActive: {
-    backgroundColor: '#1E6AC7',
-    borderColor: '#1E6AC7',
   },
   relationText: {
     color: '#6B7280',

@@ -7,7 +7,6 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-/* eslint-disable react-native/no-inline-styles */
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
@@ -23,7 +22,7 @@ import {
   formatMyPersonCelebration,
 } from '../services/myPeopleCelebrationService';
 
-  const DayItem = React.memo(
+const DayItem = React.memo(
   ({
     day,
     celebrations,
@@ -35,13 +34,15 @@ import {
     monthNameGenitive,
     darkMode,
     effectiveTextColor,
-    backgroundColor,
     getContactsForNameday,
     getMyPeopleForNameday,
     hasPermission,
     myPeopleData,
     expanded,
     onToggleExpand,
+    primaryColor,
+    primaryColorLight,
+    addAlpha,
   }: {
     day: number;
     celebrations: string[];
@@ -53,13 +54,15 @@ import {
     monthNameGenitive: string;
     darkMode?: boolean;
     effectiveTextColor?: string;
-    backgroundColor?: string;
     getContactsForNameday: (names: string[]) => any[];
     getMyPeopleForNameday: (names: string[]) => any[];
     hasPermission: boolean;
     myPeopleData: any[];
     expanded: boolean;
     onToggleExpand: () => void;
+    primaryColor: string;
+    primaryColorLight: string;
+    addAlpha: (color: string, alpha: number) => string;
   }) => {
     // Lazy load contacts only when expanded
     const contacts =
@@ -89,22 +92,49 @@ import {
     const weekdayName = GREEK_WEEKDAYS[date.getDay()];
     const dayFormatted = String(day).padStart(2, '0');
 
+    // Dynamic styles to avoid inline style linting errors
+    const dynamicDayContainerStyle = {
+      backgroundColor: isToday 
+        ? addAlpha(primaryColor, darkMode ? 0.2 : 0.15) 
+        : (darkMode ? '#1A2332' : addAlpha(primaryColor, 0.05)),
+      borderColor: isToday 
+        ? primaryColor 
+        : (darkMode ? '#374151' : addAlpha(primaryColor, 0.15)),
+      borderWidth: 1,
+    };
+
+    const dynamicDayNumberStyle = {
+      color: isToday ? primaryColor : effectiveTextColor,
+    };
+
+    const dynamicSectionTitleStyle = {
+      color: primaryColor,
+    };
+
+    const dynamicTextColorStyle = {
+      color: effectiveTextColor,
+    };
+
+    const dynamicContactItemStyle = {
+      backgroundColor: darkMode ? '#374151' : addAlpha(primaryColor, 0.08),
+      borderColor: addAlpha(primaryColor, 0.15),
+      borderWidth: 1,
+    };
+
     return (
       <TouchableOpacity
         onPress={onToggleExpand}
         style={[
           styles.dayContainer,
-          isToday && styles.todayContainer,
-          { backgroundColor: darkMode ? '#1F2937' : backgroundColor },
+          dynamicDayContainerStyle,
         ]}
       >
         <View style={styles.dayHeader}>
           <Text
             style={[
               styles.dayNumber,
-              isToday && styles.todayNumber,
               darkMode && styles.dayNumberDark,
-              { color: effectiveTextColor },
+              dynamicDayNumberStyle,
             ]}
           >
             {weekdayName} {dayFormatted} {monthNameGenitive}
@@ -112,7 +142,13 @@ import {
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={20}
-            color={isToday ? '#0369A1' : darkMode ? '#60A5FA' : '#1E6AC7'}
+            color={
+              isToday
+                ? primaryColor
+                : darkMode
+                ? primaryColorLight
+                : primaryColor
+            }
           />
         </View>
         {expanded && (
@@ -127,7 +163,7 @@ import {
                 style={[
                   styles.sectionTitle,
                   darkMode && styles.sectionTitleDark,
-                  { color: effectiveTextColor },
+                  dynamicSectionTitleStyle,
                 ]}
               >
                 Ονόματα:
@@ -136,7 +172,7 @@ import {
                 style={[
                   styles.namesText,
                   darkMode && styles.namesTextDark,
-                  { color: effectiveTextColor },
+                  dynamicTextColorStyle,
                 ]}
               >
                 {names.length > 0 && names[0] !== 'NULL' ? names.join(', ') : '—'}
@@ -148,7 +184,7 @@ import {
                   style={[
                     styles.sectionTitle,
                     darkMode && styles.sectionTitleDark,
-                    { color: effectiveTextColor },
+                    dynamicSectionTitleStyle,
                   ]}
                 >
                   Εορτές:
@@ -159,7 +195,7 @@ import {
                     style={[
                       styles.celebrationText,
                       darkMode && styles.celebrationTextDark,
-                      { color: effectiveTextColor },
+                      dynamicTextColorStyle,
                     ]}
                   >
                     • {celebration}
@@ -173,7 +209,7 @@ import {
                   style={[
                     styles.sectionTitle,
                     darkMode && styles.sectionTitleDark,
-                    { color: effectiveTextColor },
+                    dynamicSectionTitleStyle,
                   ]}
                 >
                   Παγκόσμιες ημέρες:
@@ -184,7 +220,7 @@ import {
                     style={[
                       styles.celebrationText,
                       darkMode && styles.celebrationTextDark,
-                      { color: effectiveTextColor },
+                      dynamicTextColorStyle,
                     ]}
                   >
                     • {worldDay}
@@ -198,7 +234,7 @@ import {
                   style={[
                     styles.sectionTitle,
                     darkMode && styles.sectionTitleDark,
-                    { color: effectiveTextColor },
+                    dynamicSectionTitleStyle,
                   ]}
                 >
                   Επαφές που γιορτάζουν:
@@ -207,7 +243,7 @@ import {
                   {contacts.map((contact, _index) => (
                     <TouchableOpacity
                       key={contact.recordID}
-                      style={styles.contactItem}
+                      style={[styles.contactItem, dynamicContactItemStyle]}
                       onPress={() => {
                         if (
                           !contact.phoneNumbers ||
@@ -239,7 +275,7 @@ import {
                         style={[
                           styles.contactNameClickable,
                           darkMode && styles.namesTextDark,
-                          { color: effectiveTextColor },
+                          dynamicTextColorStyle,
                         ]}
                       >
                         {contact.displayName}
@@ -260,7 +296,7 @@ import {
                             }
                             style={styles.actionButton}
                           >
-                            <Ionicons name="mail" size={14} color="#3B82F6" />
+                            <Ionicons name="mail" size={14} color={primaryColor} />
                           </TouchableOpacity>
                         </View>
                       )}
@@ -275,7 +311,7 @@ import {
                   style={[
                     styles.sectionTitle,
                     darkMode && styles.sectionTitleDark,
-                    { color: effectiveTextColor },
+                    dynamicSectionTitleStyle,
                   ]}
                 >
                   Δικοί μου άνθρωποι (εορτολόγιο):
@@ -284,7 +320,7 @@ import {
                   {myPeople.map((member: any) => (
                     <TouchableOpacity
                       key={member.id}
-                      style={styles.contactItem}
+                      style={[styles.contactItem, dynamicContactItemStyle]}
                       onPress={() => {
                         const buttons = [
                           ...(member.phoneNumber
@@ -323,7 +359,7 @@ import {
                         style={[
                           styles.contactNameClickable,
                           darkMode && styles.namesTextDark,
-                          { color: effectiveTextColor },
+                          dynamicTextColorStyle,
                         ]}
                       >
                         {formatMyPersonCelebration(member)}
@@ -344,7 +380,7 @@ import {
                             }
                             style={styles.actionButton}
                           >
-                            <Ionicons name="mail" size={14} color="#3B82F6" />
+                            <Ionicons name="mail" size={14} color={primaryColor} />
                           </TouchableOpacity>
                         </View>
                       )}
@@ -360,7 +396,7 @@ import {
                   style={[
                     styles.noCelebrationsText,
                     darkMode && styles.noCelebrationsTextDark,
-                    { color: effectiveTextColor },
+                    dynamicTextColorStyle,
                   ]}
                 >
                   Δεν υπάρχουν γιορτές
@@ -390,6 +426,9 @@ export const TotalCelebrationsScreen = ({
     backgroundColor,
     effectiveTextColor,
     globalDaysEnabled,
+    primaryColor,
+    primaryColorLight,
+    addAlpha,
   } = useAppContext();
   const {
     hasPermission,
@@ -427,6 +466,15 @@ export const TotalCelebrationsScreen = ({
   const flatListRef = useRef<FlatList>(null);
   const lastScrollTime = useRef(0);
   const scrollDelay = 300; // milliseconds
+
+  // Dynamic styles to avoid inline style linting errors
+  const dynamicContainerStyle = {
+    backgroundColor: darkModeEnabled ? '#111827' : backgroundColor,
+  };
+
+  const dynamicTextColorStyle = {
+    color: effectiveTextColor,
+  };
 
   // Use memoized year data
   const yearData = React.useMemo(() => {
@@ -572,7 +620,7 @@ export const TotalCelebrationsScreen = ({
     <View
       style={[
         styles.container,
-        { backgroundColor: darkModeEnabled ? '#111827' : backgroundColor },
+        dynamicContainerStyle,
       ]}
     >
       <View style={[styles.header, darkModeEnabled && styles.headerDark]}>
@@ -580,7 +628,7 @@ export const TotalCelebrationsScreen = ({
           <Ionicons
             name="chevron-back"
             size={24}
-            color={darkModeEnabled ? '#60A5FA' : '#1E6AC7'}
+            color={darkModeEnabled ? primaryColorLight : primaryColor}
           />
         </TouchableOpacity>
         <View style={styles.titleContainer}>
@@ -588,7 +636,7 @@ export const TotalCelebrationsScreen = ({
             style={[
               styles.title,
               darkModeEnabled && styles.titleDark,
-              { color: effectiveTextColor },
+              dynamicTextColorStyle,
             ]}
           >
             Οι εορτές του μήνα
@@ -597,7 +645,7 @@ export const TotalCelebrationsScreen = ({
             style={[
               styles.subtitle,
               darkModeEnabled && styles.subtitleDark,
-              { color: effectiveTextColor },
+              dynamicTextColorStyle,
             ]}
           >
             {monthName}
@@ -606,7 +654,7 @@ export const TotalCelebrationsScreen = ({
             style={[
               styles.yearText,
               darkModeEnabled && styles.yearTextDark,
-              { color: effectiveTextColor },
+              dynamicTextColorStyle,
             ]}
           >
             {selectedYear}
@@ -616,7 +664,7 @@ export const TotalCelebrationsScreen = ({
           <Ionicons
             name="chevron-forward"
             size={24}
-            color={darkModeEnabled ? '#60A5FA' : '#1E6AC7'}
+            color={darkModeEnabled ? primaryColorLight : primaryColor}
           />
         </TouchableOpacity>
       </View>
@@ -635,13 +683,15 @@ export const TotalCelebrationsScreen = ({
             monthNameGenitive={GREEK_MONTHS_GENITIVE[displayMonthIndex]}
             darkMode={darkModeEnabled}
             effectiveTextColor={effectiveTextColor}
-            backgroundColor={backgroundColor}
             getContactsForNameday={getContactsForNameday}
             getMyPeopleForNameday={getMyPeopleForNameday}
             hasPermission={hasPermission}
             myPeopleData={myPeople}
             expanded={expandedDay === item.day}
             onToggleExpand={() => setExpandedDay(expandedDay === item.day ? null : item.day)}
+            primaryColor={primaryColor}
+            primaryColorLight={primaryColorLight}
+            addAlpha={addAlpha}
           />
         )}
         keyExtractor={item => String(item.day)}
@@ -670,12 +720,10 @@ export const TotalCelebrationsScreen = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingTop: 20,
   },
   containerDark: {
-    backgroundColor: '#111827',
   },
   header: {
     flexDirection: 'row',
@@ -698,7 +746,6 @@ const styles = StyleSheet.create({
   },
   yearText: {
     fontSize: 14,
-    color: '#1E6AC7',
     fontWeight: '600',
   },
   yearTextDark: {
@@ -721,20 +768,11 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   dayContainer: {
-    backgroundColor: '#F9FAFB',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#1E6AC7',
+    borderRadius: 12,
+    marginBottom: 10,
   },
   dayContainerDark: {
-    backgroundColor: '#1F2937',
-    borderLeftColor: '#60A5FA',
-  },
-  todayContainer: {
-    backgroundColor: '#DBEAFE',
-    borderLeftColor: '#1E6AC7',
   },
   dayHeader: {
     flexDirection: 'row',
@@ -764,10 +802,9 @@ const styles = StyleSheet.create({
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
     paddingVertical: 3,
-    paddingHorizontal: 6,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     marginRight: 5,
     marginBottom: 4,
   },
@@ -786,11 +823,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E6AC7',
+
     marginBottom: 6,
   },
   sectionTitleDark: {
-    color: '#60A5FA',
   },
   contactNameButton: {
     marginRight: 4,
@@ -799,7 +835,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textDecorationLine: 'underline',
-    color: '#1E6AC7',
   },
   myPeopleMemberItem: {
     flexDirection: 'column',
@@ -826,15 +861,9 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E6AC7',
     marginBottom: 8,
   },
   dayNumberDark: {
-    color: '#60A5FA',
-  },
-  todayNumber: {
-    color: '#0369A1',
-    fontWeight: '700',
   },
   celebrationText: {
     fontSize: 13,

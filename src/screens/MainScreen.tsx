@@ -40,6 +40,7 @@ import { WeekScreen } from './WeekScreen';
 import MyPeopleScreen from './MyPeopleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import SearchScreen from './SearchScreen';
+import SaintScreen from './SaintScreen';
 import { SCROLL_DELAYS } from '../utils/scrollchangingscreens';
 import type { Fest } from '../types/fest';
 import type { WorldDay } from '../services/apiservices/worldday';
@@ -56,6 +57,9 @@ function DayScreenContent({
     darkModeEnabled,
     backgroundColor,
     effectiveTextColor,
+    primaryColor,
+    primaryColorLight,
+    addAlpha,
   } = useAppContext();
   const {
     hasPermission,
@@ -163,7 +167,7 @@ function DayScreenContent({
       contentContainerStyle={{ paddingBottom: 30 }}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.heroWrap}>
+      <View style={[styles.heroWrap, { backgroundColor: primaryColor }]}>
         <View style={styles.heroOverlay}>
           <View style={styles.heroContent}>
             <Text style={[styles.heroDate, { color: '#fff' }]}>
@@ -188,7 +192,10 @@ function DayScreenContent({
         <View
           style={[
             styles.celebrationBox,
-            darkModeEnabled && styles.celebrationBoxDark,
+            {
+              backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+              borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+            },
           ]}
         >
           <View style={styles.textColumn}>
@@ -227,7 +234,10 @@ function DayScreenContent({
           <View
             style={[
               styles.celebrationBox,
-              darkModeEnabled && styles.celebrationBoxDark,
+              {
+                backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+              },
             ]}
           >
             <View style={styles.textColumn}>
@@ -256,7 +266,10 @@ function DayScreenContent({
           <View
             style={[
               styles.celebrationBox,
-              darkModeEnabled && styles.celebrationBoxDark,
+              {
+                backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+              },
             ]}
           >
             <View style={styles.textColumn}>
@@ -285,10 +298,17 @@ function DayScreenContent({
           <View
             style={[
               styles.celebrationBox,
-              darkModeEnabled && styles.celebrationBoxDark,
+              {
+                backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+              },
             ]}
           >
-            <Icon name="account-multiple" size={40} color="#60A5FA" />
+            <Icon
+              name="account-multiple"
+              size={40}
+              color={darkModeEnabled ? primaryColorLight : primaryColor}
+            />
             <View style={[styles.textColumn, { flex: 1 }]}>
               <Text
                 style={[
@@ -301,7 +321,10 @@ function DayScreenContent({
                 γιορτάζουν!
               </Text>
               <TouchableOpacity
-                style={styles.permissionButton}
+                style={[
+                  styles.permissionButton,
+                  { backgroundColor: primaryColor },
+                ]}
                 onPress={requestPermission}
               >
                 <Text style={styles.permissionButtonText}>Δώστε άδεια</Text>
@@ -313,10 +336,17 @@ function DayScreenContent({
           <View
             style={[
               styles.celebrationBox,
-              darkModeEnabled && styles.celebrationBoxDark,
+              {
+                backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+              },
             ]}
           >
-            <Icon name="account-heart" size={40} color="#60A5FA" />
+            <Icon
+              name="account-heart"
+              size={40}
+              color={darkModeEnabled ? primaryColorLight : primaryColor}
+            />
             <View style={styles.textColumn}>
               <Text
                 style={[
@@ -360,7 +390,7 @@ function DayScreenContent({
                             }
                             style={styles.actionButton}
                           >
-                            <Ionicons name="mail" size={16} color="#3B82F6" />
+                            <Ionicons name="mail" size={16} color={primaryColor} />
                           </TouchableOpacity>
                         </View>
                       )}
@@ -374,7 +404,10 @@ function DayScreenContent({
           <View
             style={[
               styles.celebrationBox,
-              darkModeEnabled && styles.celebrationBoxDark,
+              {
+                backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+              },
             ]}
           >
             <Icon name="account-group" size={40} color="#10B981" />
@@ -448,7 +481,7 @@ function DayScreenContent({
                           }
                           style={styles.actionButton}
                         >
-                          <Ionicons name="mail" size={16} color="#3B82F6" />
+                          <Ionicons name="mail" size={16} color={primaryColor} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -481,12 +514,12 @@ function TopBar({
   onSearch,
 }: TopBarProps) {
   const insets = useSafeAreaInsets();
-  const { darkModeEnabled } = useAppContext();
+  const { darkModeEnabled, primaryColor, addAlpha } = useAppContext();
   return (
     <View
       style={[
         styles.topBar,
-        darkModeEnabled && styles.topBarDark,
+        { backgroundColor: primaryColor },
         { paddingTop: insets.top },
       ]}
     >
@@ -521,7 +554,7 @@ function TopBar({
               onPress={() => onSelectYear(y)}
               style={[
                 styles.yearOption,
-                y === selectedYear && styles.yearOptionSelected,
+                y === selectedYear && { backgroundColor: addAlpha(primaryColor, 0.2) },
               ]}
             >
               <Text
@@ -543,7 +576,6 @@ function TopBar({
 // getTabIcon: not used with custom bottom nav
 
 const colors = {
-  primary: '#1E6AC7',
   bgSecondary: '#F3F4F6',
 };
 
@@ -558,9 +590,15 @@ export default function MainScreen({
   supabaseWorldDays?: WorldDay[];
   supabaseMonthWorldDays?: WorldDay[];
 }) {
-  const { darkModeEnabled, selectedYear, setSelectedYear } = useAppContext();
+  const {
+    darkModeEnabled,
+    selectedYear,
+    setSelectedYear,
+    primaryColor,
+    primaryColorLight,
+  } = useAppContext();
   const [currentScreen, setCurrentScreen] = useState<
-    'day' | 'month' | 'week' | 'close' | 'settings' | 'search'
+    'day' | 'month' | 'week' | 'close' | 'settings' | 'search' | 'saint'
   >('day');
   const [showYearPicker, setShowYearPicker] = useState(false);
 
@@ -708,12 +746,22 @@ export default function MainScreen({
                 <Icon
                   name={String(icon)}
                   size={24}
-                  color={currentScreen === screen ? colors.primary : '#6b7280'}
+                  color={
+                    currentScreen === screen
+                      ? darkModeEnabled
+                        ? primaryColorLight
+                        : primaryColor
+                      : '#6b7280'
+                  }
                 />
                 <Text
                   style={{
                     color:
-                      currentScreen === screen ? colors.primary : '#6b7280',
+                      currentScreen === screen
+                        ? darkModeEnabled
+                          ? primaryColorLight
+                          : primaryColor
+                        : '#6b7280',
                     marginTop: 4,
                   }}
                 >
@@ -743,7 +791,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   topBar: {
-    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -752,7 +799,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   topBarDark: {
-    backgroundColor: '#1E3A8A',
   },
   topLeft: {
     width: 48,
@@ -825,7 +871,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
-    backgroundColor: colors.primary,
   },
   heroOverlay: {
     position: 'absolute',
@@ -883,12 +928,10 @@ const styles = StyleSheet.create({
   celebrationBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F9FAFB',
     padding: 14,
     borderRadius: 12,
-  },
-  celebrationBoxDark: {
-    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    marginBottom: 12,
   },
   textColumn: {
     flex: 1,
@@ -946,7 +989,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   permissionButton: {
-    backgroundColor: '#1E6AC7',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,

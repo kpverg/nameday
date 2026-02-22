@@ -18,8 +18,15 @@ type Props = {
 };
 
 export function SearchScreen({ onBack }: Props) {
-  const { selectedYear, darkModeEnabled, backgroundColor, effectiveTextColor } =
-    useAppContext();
+  const {
+    selectedYear,
+    darkModeEnabled,
+    backgroundColor,
+    effectiveTextColor,
+    primaryColor,
+    primaryColorLight,
+    addAlpha,
+  } = useAppContext();
   const [query, setQuery] = useState('');
   const [normalizedQuery, setNormalizedQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -73,14 +80,21 @@ export function SearchScreen({ onBack }: Props) {
             {
               backgroundColor: darkModeEnabled ? '#111827' : '#fff',
               color: effectiveTextColor,
-              borderColor: darkModeEnabled ? '#222' : '#D1D5DB',
+              borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.2),
             },
           ]}
+          placeholderTextColor={darkModeEnabled ? '#9CA3AF' : '#6b7280'}
           autoCapitalize="words"
         />
-        <View style={styles.findButton}>
-          <Button title="Find" onPress={findName} />
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.findButtonContainer,
+            { backgroundColor: primaryColor },
+          ]}
+          onPress={findName}
+        >
+          <Text style={styles.findButtonText}>Αναζήτηση</Text>
+        </TouchableOpacity>
 
         {message ? (
           <Text style={[styles.message, { color: effectiveTextColor }]}>
@@ -118,13 +132,17 @@ export function SearchScreen({ onBack }: Props) {
               <View
                 key={`${r.month}-${r.day}-${idx}`}
                 style={[
-                  styles.resultItem,
-                  { borderBottomColor: darkModeEnabled ? '#374151' : '#F3F4F6' }
+                  styles.resultCard,
+                  {
+                    backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                    borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+                    borderWidth: 1,
+                  },
                 ]}
               >
                 {/* 1. Ημερομηνία πρώτη */}
                 <Text
-                  style={[styles.resultText, { color: effectiveTextColor }]}
+                  style={[styles.resultText, { color: primaryColor }]}
                 >{`${weekday}, ${r.day} ${r.month}`}</Text>
 
                 {/* 2. Εορτές σήμερα */}
@@ -160,7 +178,7 @@ export function SearchScreen({ onBack }: Props) {
                         return (
                           <Text
                             key={i}
-                            style={isMatch ? [styles.nameMatch, { color: '#2563EB', fontWeight: 'bold' }] : undefined}
+                            style={isMatch ? { color: primaryColor, fontWeight: 'bold' } : undefined}
                           >
                             {n}
                             {i < r.names!.length - 1 ? ', ' : ''}
@@ -194,21 +212,33 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '600' },
   body: { padding: 16, flex: 1 },
   input: {
-    height: 44,
+    height: 48,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    fontSize: 16,
+  },
+  findButtonContainer: {
+    height: 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  findButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  message: { fontSize: 14, marginBottom: 12 },
+  results: { flex: 1, marginTop: 8 },
+  resultCard: {
+    padding: 14,
+    borderRadius: 12,
     marginBottom: 12,
   },
-  findButton: { marginBottom: 12 },
-  message: { fontSize: 14, marginBottom: 8 },
-  results: { flex: 1, marginTop: 8 },
-  resultItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  resultText: { fontSize: 16, fontWeight: '600' },
+  resultText: { fontSize: 16, fontWeight: '700' },
   namesList: { marginTop: 6, marginBottom: 6 },
   nameItem: { fontSize: 14 },
   namesLine: { marginTop: 6, marginBottom: 6, fontSize: 14 },

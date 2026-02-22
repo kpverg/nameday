@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   NOTIFICATIONS: 'app_notifications_enabled',
   BACKGROUND_TONE: 'app_background_tone',
   TEXT_TONE: 'app_text_tone',
+  PRIMARY_COLOR: 'app_primary_color',
   SELECTED_YEAR: 'app_selected_year',
   MY_PEOPLE: '@nameday_schemas', // Key remains for backward compatibility
 };

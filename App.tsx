@@ -26,19 +26,19 @@ import type { Fest } from './src/types/fest';
 import supabase from './src/utils/supabase';
 
 // Fallback inline splash in case import resolution misbehaves
-const InlineSplash = ({ onComplete, backgroundColor, textColor }: { onComplete: () => void, backgroundColor: string, textColor: string }) => {
+const InlineSplash = ({ onComplete, backgroundColor, textColor, primaryColor }: { onComplete: () => void, backgroundColor: string, textColor: string, primaryColor: string }) => {
   useEffect(() => {
     const timer = setTimeout(onComplete, 1500);
     return () => clearTimeout(timer);
   }, [onComplete]);
   return (
     <View style={[stylesSplash.container, { backgroundColor }]}>
-      <Text style={[stylesSplash.title, { color: textColor }]}>
+      <Text style={[stylesSplash.title, { color: primaryColor }]}>
         Εορτολόγιο
       </Text>
       <ActivityIndicator
         size="large"
-        color={textColor}
+        color={primaryColor}
         style={stylesSplash.spinner}
       />
       <Text style={[stylesSplash.subtitle, { color: textColor }]}>
@@ -49,7 +49,7 @@ const InlineSplash = ({ onComplete, backgroundColor, textColor }: { onComplete: 
 };
 
 function AppContent() {
-  const { isLoading, backgroundColor, textColor, globalDaysEnabled } = useAppContext();
+  const { isLoading, backgroundColor, textColor, globalDaysEnabled, primaryColor } = useAppContext();
   const isDarkMode = useColorScheme() === 'dark';
   const [showApp, setShowApp] = useState(!isLoading);
   const [fests, setFests] = useState<Fest[]>([]);
@@ -124,9 +124,9 @@ function AppContent() {
     // Prefer external component; fallback to inline if undefined
     if (SplashLoading) {
       const Comp: any = SplashLoading;
-      return <Comp onComplete={() => setShowApp(true)} />;
+      return <Comp onComplete={() => setShowApp(true)} primaryColor={primaryColor} textColor={textColor} />;
     }
-    return <InlineSplash onComplete={() => setShowApp(true)} backgroundColor={backgroundColor} textColor={textColor} />;
+    return <InlineSplash onComplete={() => setShowApp(true)} backgroundColor={backgroundColor} textColor={textColor} primaryColor={primaryColor} />;
   }
 
   return (
@@ -164,7 +164,6 @@ const stylesSplash = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1E6AC7',
     marginBottom: 20,
   },
   spinner: {

@@ -12,6 +12,7 @@ import { useState } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../AppContext';
 import { useContacts } from '../ContactsContext';
+import { basePalette } from '../utils/palette';
 
 interface SettingItemProps {
   icon: string;
@@ -33,6 +34,7 @@ const SettingItem = ({
   darkMode,
 }: SettingItemProps) => {
   const isToggle = onToggle !== undefined;
+  const { primaryColor, primaryColorLight } = useAppContext();
 
   return (
     <TouchableOpacity
@@ -44,7 +46,7 @@ const SettingItem = ({
       <Ionicons
         name={icon}
         size={24}
-        color={darkMode ? '#60A5FA' : '#1E6AC7'}
+        color={darkMode ? primaryColorLight : primaryColor}
       />
       <View style={styles.settingContent}>
         <Text
@@ -68,7 +70,7 @@ const SettingItem = ({
           value={value || false}
           onValueChange={onToggle}
           trackColor={{ false: '#4B5563', true: '#86EFAC' }}
-          thumbColor={value ? '#60A5FA' : '#6B7280'}
+          thumbColor={value ? (darkMode ? primaryColorLight : primaryColor) : '#6B7280'}
         />
       )}
       {!isToggle && (
@@ -85,6 +87,7 @@ const SettingItem = ({
 export const SettingsScreen = () => {
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
+  const [showPalettePicker, setShowPalettePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const {
     globalDaysEnabled,
@@ -98,7 +101,9 @@ export const SettingsScreen = () => {
     textTone,
     setTextTone,
     backgroundColor,
-    textColor,
+    primaryColor,
+    primaryColorLight,
+    setPrimaryColor,
   } = useAppContext();
   const { hasPermission, requestPermission, refreshContacts } = useContacts();
 
@@ -132,6 +137,17 @@ export const SettingsScreen = () => {
     { key: 'burgundy', label: 'Μπορντό', color: '#581C1C' },
     { key: 'dark', label: 'Σκούρα, έντονη γραμματοσειρά', color: '#22223B' },
     { key: 'normal', label: 'Κανονικό κείμενο', color: '#374151' },
+  ];
+
+  const paletteOptions = basePalette.map((p) => ({
+    key: p.color,
+    label: p.label,
+    color: p.color,
+  }));
+
+  const containerStyle = [
+    styles.container,
+    { backgroundColor: darkModeEnabled ? '#1F2937' : backgroundColor },
   ];
 
   const renderOptionSheet = (
@@ -170,17 +186,12 @@ export const SettingsScreen = () => {
                   onClose();
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.paletteOptionRow}>
                   <View
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
-                      backgroundColor: opt.color,
-                      marginRight: 12,
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                    }}
+                    style={[
+                      styles.colorCircle,
+                      { backgroundColor: opt.color },
+                    ]}
                   />
                   <Text
                     style={[
@@ -195,8 +206,8 @@ export const SettingsScreen = () => {
                     <Ionicons
                       name="checkmark"
                       size={18}
-                      color={darkModeEnabled ? '#BFDBFE' : '#1E6AC7'}
-                      style={{ marginLeft: 8 }}
+                      color={darkModeEnabled ? primaryColorLight : primaryColor}
+                      style={styles.checkmark}
                     />
                   )}
                 </View>
@@ -210,10 +221,7 @@ export const SettingsScreen = () => {
 
   return (
     <ScrollView
-      style={[
-        styles.container,
-        { backgroundColor: darkModeEnabled ? '#1F2937' : backgroundColor },
-      ]}
+      style={containerStyle}
     >
       <Text style={[styles.title, darkModeEnabled && styles.titleDark]}>
         Ρυθμίσεις
@@ -255,6 +263,13 @@ export const SettingsScreen = () => {
           title="Σκοτεινή λειτουργία"
           value={darkModeEnabled}
           onToggle={setDarkModeEnabled}
+          darkMode={darkModeEnabled}
+        />
+        <SettingItem
+          icon="brush"
+          title="Χρώμα εφαρμογής"
+          subtitle="Επιλογή βασικού θέματος"
+          onPress={() => setShowPalettePicker(true)}
           darkMode={darkModeEnabled}
         />
         <SettingItem
@@ -344,6 +359,15 @@ export const SettingsScreen = () => {
           © 2025 Όλα τα δικαιώματα διατηρούνται
         </Text>
       </View>
+
+      {renderOptionSheet(
+        showPalettePicker,
+        () => setShowPalettePicker(false),
+        'Χρώμα εφαρμογής',
+        paletteOptions,
+        primaryColor,
+        key => setPrimaryColor(key),
+      )}
 
       {renderOptionSheet(
         showBackgroundPicker,
@@ -514,5 +538,21 @@ const styles = StyleSheet.create({
   },
   sheetOptionTextSelected: {
     fontWeight: '700',
+  },
+  paletteOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  colorCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  checkmark: {
+    marginLeft: 8,
   },
 });

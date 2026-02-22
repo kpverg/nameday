@@ -7,6 +7,8 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from './services/localPaths';
+import { defaultColor } from './utils/palette';
+import { adjustColor, addAlpha } from './utils/colorUtils';
 
 type BackgroundTone =
   | 'white'
@@ -31,6 +33,10 @@ interface AppContextType {
   backgroundColor: string;
   textColor: string;
   effectiveTextColor: string;
+  primaryColor: string;
+  setPrimaryColor: (color: string) => void;
+  primaryColorLight: string;
+  addAlpha: (color: string, opacity: number) => string;
   isLoading: boolean;
   selectedYear: number;
   setSelectedYear: (year: number) => void;
@@ -45,6 +51,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [backgroundTone, setBackgroundToneState] =
     useState<BackgroundTone>('neutral');
   const [textTone, setTextToneState] = useState<TextTone>('normal');
+  const [primaryColor, setPrimaryColorState] = useState(defaultColor);
 
   // Mapping για τα χρώματα
   const backgroundColorMap: Record<BackgroundTone, string> = {
@@ -67,6 +74,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const textColor = textColorMap[textTone] || '#374151';
   // In dark mode, always use default light text colors; in light mode, use user selected colors
   const effectiveTextColor = darkModeEnabled ? '#E5E7EB' : textColor;
+  // A lightened version of primary color for dark mode or backgrounds
+  const primaryColorLight = adjustColor(primaryColor, 30);
+
   const [isLoading, setIsLoading] = useState(true);
   const [selectedYear, setSelectedYearState] = useState<number>(
     new Date().getFullYear(),
@@ -82,6 +92,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           notifications,
           storedBackground,
           storedTextTone,
+          storedPrimaryColor,
           storedYear,
         ] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.GLOBAL_DAYS),
@@ -89,6 +100,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
           AsyncStorage.getItem(STORAGE_KEYS.BACKGROUND_TONE),
           AsyncStorage.getItem(STORAGE_KEYS.TEXT_TONE),
+          AsyncStorage.getItem(STORAGE_KEYS.PRIMARY_COLOR),
           AsyncStorage.getItem(STORAGE_KEYS.SELECTED_YEAR),
         ]);
 
@@ -106,12 +118,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           if (!Number.isNaN(y)) setSelectedYearState(y);
         }
         if (storedBackground !== null) {
-          setBackgroundToneState(
-            storedBackground === 'light' ? 'light' : 'neutral',
-          );
+          setBackgroundToneState(storedBackground as BackgroundTone);
         }
         if (storedTextTone !== null) {
-          setTextToneState(storedTextTone === 'dark' ? 'dark' : 'normal');
+          setTextToneState(storedTextTone as TextTone);
+        }
+        if (storedPrimaryColor !== null) {
+          setPrimaryColorState(storedPrimaryColor);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -171,6 +184,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setPrimaryColor = async (value: string) => {
+    try {
+      setPrimaryColorState(value);
+      await AsyncStorage.setItem(STORAGE_KEYS.PRIMARY_COLOR, value);
+    } catch (error) {
+      console.error('Error saving primary color:', error);
+    }
+  };
+
   // Save selected year setting
   const setSelectedYear = async (year: number) => {
     try {
@@ -195,6 +217,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     backgroundColor,
     textColor,
     effectiveTextColor,
+    primaryColor,
+    setPrimaryColor,
+    primaryColorLight,
+    addAlpha,
     isLoading,
     selectedYear,
     setSelectedYear,
