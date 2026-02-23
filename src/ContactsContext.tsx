@@ -63,47 +63,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
 
   // Load My People groups and extract members
   const loadMyPeople = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.MY_PEOPLE);
-      console.log(
-        '[ContactsContext] Loading My People from storage:',
-        stored ? 'found' : 'empty',
-      );
-      if (stored) {
-        const groups = JSON.parse(stored);
-        console.log('[ContactsContext] Parsed groups:', groups.length);
-        const allMembers: MyPerson[] = [];
-
-        groups.forEach((group: any) => {
-          console.log(
-            '[ContactsContext] Processing group:',
-            group.name,
-            'with',
-            group.members?.length,
-            'members',
-          );
-          group.members.forEach((member: any) => {
-            allMembers.push({
-              ...member,
-              groupName: group.name,
-              assocName: group.assocName,
-              isFromMyPeople: true,
-              phoneNumber: group.contactPhoneNumber || null,
-            });
-          });
-        });
-
-        console.log(
-          '[ContactsContext] Total My People loaded:',
-          allMembers.length,
-        );
-        setMyPeople(allMembers);
-      } else {
-        setMyPeople([]);
-      }
-    } catch (error) {
-      console.error('Error loading My People:', error);
-    }
+    await loadMyPeopleInternal(contacts);
   };
 
   // Listen for storage changes
@@ -150,21 +110,57 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const loadContacts = async () => {
     try {
       const allContacts = await Contacts.getAll();
-      setContacts(
-        allContacts.map(c => {
-          const givenName = c.givenName || '';
-          return {
-            recordID: c.recordID,
-            givenName: givenName,
-            familyName: c.familyName || '',
-            displayName: c.displayName || givenName || '',
-            phoneNumbers: c.phoneNumbers || [],
-            givenNameGreeklish: greekToGreeklish(givenName),
-          };
-        }),
-      );
+      const mappedContacts = allContacts.map(c => {
+        const givenName = c.givenName || '';
+        return {
+          recordID: c.recordID,
+          givenName: givenName,
+          familyName: c.familyName || '',
+          displayName: c.displayName || givenName || '',
+          phoneNumbers: c.phoneNumbers || [],
+          givenNameGreeklish: greekToGreeklish(givenName),
+        };
+      });
+      setContacts(mappedContacts);
+      // Trigger reloading My People to ensure correct phone numbers from contacts
+      await loadMyPeopleInternal(mappedContacts);
     } catch (error) {
       console.error('Error loading contacts:', error);
+    }
+  };
+
+  const loadMyPeopleInternal = async (currentContacts: Contact[]) => {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.MY_PEOPLE);
+      if (stored) {
+        const groups = JSON.parse(stored);
+        const allMembers: MyPerson[] = [];
+
+        groups.forEach((group: any) => {
+          group.members.forEach((member: any) => {
+            // Find contact from recordID stored in group if available
+            const associatedContact = group.contactRecordID 
+              ? currentContacts.find((c: any) => c.recordID === group.contactRecordID)
+              : null;
+            
+            const phoneNumber = associatedContact?.phoneNumbers?.[0]?.number 
+              || group.contactPhoneNumber 
+              || member.phoneNumber 
+              || null;
+
+            allMembers.push({
+              ...member,
+              groupName: group.name,
+              assocName: group.assocName,
+              isFromMyPeople: true,
+              phoneNumber: phoneNumber,
+            });
+          });
+        });
+        setMyPeople(allMembers);
+      }
+    } catch (error) {
+      console.error('Error in loadMyPeopleInternal:', error);
     }
   };
 

@@ -20,7 +20,7 @@ import { useContacts } from '../ContactsContext';
 import { useAppContext } from '../AppContext';
 
 export default function MyPeopleScreen() {
-  const { searchContactsByGreeklish, refreshMyPeople } = useContacts();
+  const { contacts, searchContactsByGreeklish, refreshMyPeople } = useContacts();
   const { 
     effectiveTextColor, 
     darkModeEnabled, 
@@ -198,7 +198,13 @@ export default function MyPeopleScreen() {
                     setGroupName(s.name || '');
                     setMembers(s.members || []);
                     setAssocQuery(s.assocName || '');
-                    setSelectedPersonContact(null);
+                    
+                    // Try to find the associated contact to restore it in the picker
+                    const existingContact = s.contactRecordID 
+                      ? contacts.find((c: any) => c.recordID === s.contactRecordID)
+                      : null;
+                    setSelectedPersonContact(existingContact || null);
+                    
                     setShowModal(true);
                   }}
                   style={styles.iconBtn}
@@ -540,6 +546,7 @@ export default function MyPeopleScreen() {
                               assocName: selectedPersonContact?.displayName || assocQuery,
                               contactPhoneNumber:
                                 selectedPersonContact?.phoneNumbers?.[0]?.number || null,
+                              contactRecordID: selectedPersonContact?.recordID || null,
                             }
                           : p,
                       ),
@@ -552,6 +559,7 @@ export default function MyPeopleScreen() {
                       members,
                       assocName: selectedPersonContact?.displayName || assocQuery,
                       contactPhoneNumber: selectedPersonContact?.phoneNumbers?.[0]?.number || null,
+                      contactRecordID: selectedPersonContact?.recordID || null,
                     };
                     setSavedPeopleGroups(prev => [personGroup, ...prev]);
                   }

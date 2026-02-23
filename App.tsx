@@ -13,6 +13,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useAppContext } from './src/AppContext';
 import { ContactsProvider } from './src/ContactsContext';
 import MainScreen from './src/screens/MainScreen';
@@ -23,6 +24,7 @@ import { getTodayFests } from './src/services/apiservices/todayfest';
 import { getFestsByMonth } from './src/services/apiservices/totalMonthFests';
 import { getTodayWorldDays, getWorldDaysByMonth, WorldDay } from './src/services/apiservices/worldday';
 import type { Fest } from './src/types/fest';
+import type { Saint } from './src/types/saint';
 import supabase from './src/utils/supabase';
 
 // Fallback inline splash in case import resolution misbehaves
@@ -56,12 +58,21 @@ function AppContent() {
   const [monthFests, setMonthFests] = useState<Fest[]>([]);
   const [worldDays, setWorldDays] = useState<WorldDay[]>([]);
   const [monthWorldDays, setMonthWorldDays] = useState<WorldDay[]>([]);
+  const [todaySaints, setTodaySaints] = useState<Saint[]>([]);
 
   useNotifications(fests, worldDays); // Initialize notifications with remote data
 
   useEffect(() => {
     async function fetchFests() {
       try {
+        const today = new Date();
+        const currentDay = today.getDate();
+        const greekMonths = [
+          'Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος',
+          'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'
+        ];
+        const currentMonth = greekMonths[today.getMonth()];
+
         console.log('Fetching today fests...');
         const data = await getTodayFests();
         console.log('Fetched data (today):', data);
@@ -77,12 +88,21 @@ function AppContent() {
           setWorldDays(wd);
         }
 
-        // Fetch total fests for the current month
-        const greekMonths = [
-          'Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος',
-          'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'
-        ];
-        const currentMonth = greekMonths[new Date().getMonth()];
+        // Fetch today saints
+        console.log(`Fetching saints for ${currentDay} ${currentMonth}...`);
+        const { data: saintsData, error: saintsError } = await supabase
+          .from('saint')
+          .select('*')
+          .eq('feast_day', currentDay)
+          .eq('feast_month', currentMonth);
+        
+        if (saintsError) {
+          console.error('Error fetching saints:', saintsError);
+        } else if (saintsData) {
+          console.log('Fetched today saints:', saintsData);
+          setTodaySaints(saintsData);
+        }
+
         console.log(`Fetching fests for total month: ${currentMonth}...`);
         
         // Debug: Fetch first 3 entries to see column values
@@ -137,6 +157,7 @@ function AppContent() {
         supabaseMonthFests={monthFests} 
         supabaseWorldDays={worldDays}
         supabaseMonthWorldDays={monthWorldDays}
+        todaySaints={todaySaints}
       />
     </>
   );
@@ -144,11 +165,13 @@ function AppContent() {
 
 function App() {
   return (
-    <AppProvider>
-      <ContactsProvider>
-        <AppContent />
-      </ContactsProvider>
-    </AppProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <ContactsProvider>
+          <AppContent />
+        </ContactsProvider>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }
 

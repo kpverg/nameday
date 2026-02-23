@@ -280,26 +280,6 @@ const DayItem = React.memo(
                       >
                         {contact.displayName}
                       </Text>
-                      {contact.phoneNumbers && contact.phoneNumbers.length > 0 && (
-                        <View style={styles.contactActions}>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Linking.openURL(`tel:${contact.phoneNumbers[0].number}`)
-                            }
-                            style={styles.actionButton}
-                          >
-                            <Ionicons name="call" size={14} color="#10B981" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Linking.openURL(`sms:${contact.phoneNumbers[0].number}`)
-                            }
-                            style={styles.actionButton}
-                          >
-                            <Ionicons name="mail" size={14} color={primaryColor} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -322,37 +302,33 @@ const DayItem = React.memo(
                       key={member.id}
                       style={[styles.contactItem, dynamicContactItemStyle]}
                       onPress={() => {
+                        if (!member.phoneNumber) {
+                          Alert.alert(
+                            'Πρόβλημα',
+                            'Η επαφή δεν έχει αποθηκευμένο τηλέφωνο',
+                          );
+                          return;
+                        }
                         const buttons = [
-                          ...(member.phoneNumber
-                            ? [
-                                {
-                                  text: '📞 Κλήση',
-                                  onPress: () =>
-                                    Linking.openURL(
-                                      `tel:${member.phoneNumber}`,
-                                    ),
-                                },
-                                {
-                                  text: '✉️ SMS',
-                                  onPress: () =>
-                                    Linking.openURL(
-                                      `sms:${member.phoneNumber}`,
-                                    ),
-                                },
-                              ]
-                            : []),
+                          {
+                            text: '📞 Κλήση',
+                            onPress: () =>
+                              Linking.openURL(`tel:${member.phoneNumber}`),
+                          },
+                          {
+                            text: '✉️ SMS',
+                            onPress: () =>
+                              Linking.openURL(`sms:${member.phoneNumber}`),
+                          },
                           {
                             text: 'Κλείσιμο',
                             style: 'cancel' as 'cancel',
                           },
                         ];
                         const fullName = formatMyPersonCelebration(member);
-                        Alert.alert(
-                          fullName,
-                          'Επιλέξτε ενέργεια:',
-                          buttons,
-                          { cancelable: true },
-                        );
+                        Alert.alert(fullName, 'Επιλέξτε ενέργεια:', buttons, {
+                          cancelable: true,
+                        });
                       }}
                     >
                       <Text
@@ -364,26 +340,6 @@ const DayItem = React.memo(
                       >
                         {formatMyPersonCelebration(member)}
                       </Text>
-                      {member.phoneNumber && (
-                        <View style={styles.contactActions}>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Linking.openURL(`tel:${member.phoneNumber}`)
-                            }
-                            style={styles.actionButton}
-                          >
-                            <Ionicons name="call" size={14} color="#10B981" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Linking.openURL(`sms:${member.phoneNumber}`)
-                            }
-                            style={styles.actionButton}
-                          >
-                            <Ionicons name="mail" size={14} color={primaryColor} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
                     </TouchableOpacity>
                   ))}
                 </View>

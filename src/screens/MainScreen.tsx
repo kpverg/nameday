@@ -6,6 +6,7 @@ import {
   Linking,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
 // Disable lint rule that flags inline styles as errors in editor
 /* eslint-disable react-native/no-inline-styles */
@@ -44,13 +45,18 @@ import SaintScreen from './SaintScreen';
 import { SCROLL_DELAYS } from '../utils/scrollchangingscreens';
 import type { Fest } from '../types/fest';
 import type { WorldDay } from '../services/apiservices/worldday';
+import type { Saint } from '../types/saint';
 
 function DayScreenContent({ 
   supabaseFests, 
-  supabaseWorldDays 
+  supabaseWorldDays,
+  todaySaints,
+  onSelectSaint,
 }: { 
   supabaseFests?: Fest[];
   supabaseWorldDays?: WorldDay[];
+  todaySaints?: Saint[];
+  onSelectSaint?: (saint: Saint) => void;
 }) {
   const {
     globalDaysEnabled,
@@ -75,6 +81,16 @@ function DayScreenContent({
   const [worldDayToday, setWorldDayToday] = useState<string | null>(null);
   const [contactsCelebrating, setContactsCelebrating] = useState<any[]>([]);
   const [myPeopleCelebrating, setMyPeopleCelebrating] = useState<any[]>([]);
+  const [activeSaintIndex, setActiveSaintIndex] = useState(0);
+
+  useEffect(() => {
+    if (todaySaints && todaySaints.length > 1) {
+      const interval = setInterval(() => {
+        setActiveSaintIndex(prev => (prev + 1) % todaySaints.length);
+      }, 4000); // Cycle every 4 seconds
+      return () => clearInterval(interval);
+    }
+  }, [todaySaints]);
 
   useEffect(() => {
     let timeoutId: any;
@@ -262,6 +278,61 @@ function DayScreenContent({
             </View>
           </View>
         )}
+        {todaySaints && todaySaints.length > 0 && (
+          <TouchableOpacity
+            style={[
+              styles.celebrationBox,
+              {
+                backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
+              },
+            ]}
+            onPress={() => onSelectSaint?.(todaySaints[activeSaintIndex])}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              {todaySaints[activeSaintIndex].image_url ? (
+                <Image
+                  source={{ uri: todaySaints[activeSaintIndex].image_url }}
+                  style={{ width: 40, height: 40, borderRadius: 4, marginRight: 15 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Icon
+                  name="book-open-variant"
+                  size={34}
+                  color={darkModeEnabled ? primaryColorLight : primaryColor}
+                  style={{ marginRight: 15 }}
+                />
+              )}
+              <View style={styles.textColumn}>
+                <Text
+                  style={[
+                    styles.label,
+                    darkModeEnabled && styles.labelDark,
+                    { color: effectiveTextColor, marginBottom: 2 },
+                  ]}
+                >
+                  Βίοι Αγίων:
+                </Text>
+                <Text
+                  style={[
+                    styles.namesList,
+                    darkModeEnabled && styles.namesListDark,
+                    { color: effectiveTextColor, fontSize: 16, fontWeight: '700' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {todaySaints[activeSaintIndex].name}
+                </Text>
+              </View>
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={darkModeEnabled ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} 
+              />
+            </View>
+          </TouchableOpacity>
+        )}
         {worldDayToday && (
           <View
             style={[
@@ -359,7 +430,22 @@ function DayScreenContent({
               </Text>
               <View style={styles.contactsRow}>
                 {contactsCelebrating.map(contact => (
-                  <View key={contact.recordID} style={styles.contactItem}>
+                  <TouchableOpacity
+                    key={contact.recordID}
+                    style={styles.contactItem}
+                    onPress={() => {
+                      if (!contact.phoneNumbers || contact.phoneNumbers.length === 0) {
+                        Alert.alert('Πρόβλημα', 'Η επαφή δεν έχει αποθηκευμένο τηλέφωνο');
+                        return;
+                      }
+                      const phoneNumber = contact.phoneNumbers[0].number;
+                      Alert.alert(contact.displayName, 'Επιλέξτε ενέργεια:', [
+                        { text: '📞 Κλήση', onPress: () => Linking.openURL(`tel:${phoneNumber}`) },
+                        { text: '✉️ SMS', onPress: () => Linking.openURL(`sms:${phoneNumber}`) },
+                        { text: 'Ακύρωση', style: 'cancel' },
+                      ]);
+                    }}
+                  >
                     <Text
                       style={[
                         styles.contactName,
@@ -369,32 +455,7 @@ function DayScreenContent({
                     >
                       {contact.displayName}
                     </Text>
-                    {contact.phoneNumbers &&
-                      contact.phoneNumbers.length > 0 && (
-                        <View style={styles.contactActions}>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Linking.openURL(
-                                `tel:${contact.phoneNumbers[0].number}`,
-                              )
-                            }
-                            style={styles.actionButton}
-                          >
-                            <Ionicons name="call" size={16} color="#10B981" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Linking.openURL(
-                                `sms:${contact.phoneNumbers[0].number}`,
-                              )
-                            }
-                            style={styles.actionButton}
-                          >
-                            <Ionicons name="mail" size={16} color={primaryColor} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             </View>
@@ -427,33 +488,33 @@ function DayScreenContent({
                     key={member.id}
                     style={styles.contactItem}
                     onPress={() => {
+                      const fullName = formatMyPersonCelebration(member);
+                      if (!member.phoneNumber) {
+                        Alert.alert(
+                          'Πρόβλημα',
+                          'Η επαφή δεν έχει αποθηκευμένο τηλέφωνο',
+                        );
+                        return;
+                      }
                       const buttons = [
-                        ...(member.phoneNumber
-                          ? [
-                              {
-                                text: '📞 Κλήση',
-                                onPress: () =>
-                                  Linking.openURL(`tel:${member.phoneNumber}`),
-                              },
-                              {
-                                text: '✉️ SMS',
-                                onPress: () =>
-                                  Linking.openURL(`sms:${member.phoneNumber}`),
-                              },
-                            ]
-                          : []),
+                        {
+                          text: '📞 Κλήση',
+                          onPress: () =>
+                            Linking.openURL(`tel:${member.phoneNumber}`),
+                        },
+                        {
+                          text: '✉️ SMS',
+                          onPress: () =>
+                            Linking.openURL(`sms:${member.phoneNumber}`),
+                        },
                         {
                           text: 'Κλείσιμο',
                           style: 'cancel' as 'cancel',
                         },
                       ];
-                      const fullName = formatMyPersonCelebration(member);
-                      Alert.alert(
-                        fullName,
-                        'Επιλέξτε ενέργεια:',
-                        buttons,
-                        { cancelable: true },
-                      );
+                      Alert.alert(fullName, 'Επιλέξτε ενέργεια:', buttons, {
+                        cancelable: true,
+                      });
                     }}
                   >
                     <Text
@@ -465,26 +526,6 @@ function DayScreenContent({
                     >
                       {formatMyPersonCelebration(member)}
                     </Text>
-                    {member.phoneNumber && (
-                      <View style={styles.contactActions}>
-                        <TouchableOpacity
-                          onPress={() =>
-                            Linking.openURL(`tel:${member.phoneNumber}`)
-                          }
-                          style={styles.actionButton}
-                        >
-                          <Ionicons name="call" size={16} color="#10B981" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() =>
-                            Linking.openURL(`sms:${member.phoneNumber}`)
-                          }
-                          style={styles.actionButton}
-                        >
-                          <Ionicons name="mail" size={16} color={primaryColor} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -584,11 +625,13 @@ export default function MainScreen({
   supabaseMonthFests,
   supabaseWorldDays,
   supabaseMonthWorldDays,
+  todaySaints,
 }: { 
   supabaseFests?: Fest[];
   supabaseMonthFests?: Fest[];
   supabaseWorldDays?: WorldDay[];
   supabaseMonthWorldDays?: WorldDay[];
+  todaySaints?: Saint[];
 }) {
   const {
     darkModeEnabled,
@@ -597,10 +640,12 @@ export default function MainScreen({
     primaryColor,
     primaryColorLight,
   } = useAppContext();
+  const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState<
     'day' | 'month' | 'week' | 'close' | 'settings' | 'search' | 'saint'
   >('day');
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [selectedSaint, setSelectedSaint] = useState<Saint | null>(null);
 
   const yearOptions = useMemo(() => {
     const baseYear = new Date().getFullYear();
@@ -646,6 +691,11 @@ export default function MainScreen({
           <DayScreenContent 
             supabaseFests={supabaseFests} 
             supabaseWorldDays={supabaseWorldDays} 
+            todaySaints={todaySaints}
+            onSelectSaint={(s) => {
+              setSelectedSaint(s);
+              setCurrentScreen('saint');
+            }}
           />
         );
       case 'month':
@@ -668,111 +718,144 @@ export default function MainScreen({
         return <SettingsScreen />;
       case 'search':
         return <SearchScreen onBack={() => setCurrentScreen('day')} />;
+      case 'saint':
+        return (
+          <SaintScreen 
+            saint={selectedSaint || (todaySaints && todaySaints[0]) || undefined} 
+            allSaints={todaySaints}
+            onNextSaint={() => {
+              if (todaySaints) {
+                const currentIndex = todaySaints.findIndex(s => s.id === (selectedSaint?.id || todaySaints[0]?.id));
+                if (currentIndex < todaySaints.length - 1) {
+                  setSelectedSaint(todaySaints[currentIndex + 1]);
+                }
+              }
+            }}
+            onPrevSaint={() => {
+              if (todaySaints) {
+                const currentIndex = todaySaints.findIndex(s => s.id === (selectedSaint?.id || todaySaints[0]?.id));
+                if (currentIndex > 0) {
+                  setSelectedSaint(todaySaints[currentIndex - 1]);
+                }
+              }
+            }}
+            onBack={() => {
+              setSelectedSaint(null);
+              setCurrentScreen('day');
+            }} 
+          />
+        );
       default:
         return (
           <DayScreenContent 
             supabaseFests={supabaseFests} 
             supabaseWorldDays={supabaseWorldDays} 
+            todaySaints={todaySaints}
+            onSelectSaint={(s) => {
+              setSelectedSaint(s);
+              setCurrentScreen('saint');
+            }}
           />
         );
     }
   };
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View
-          style={[styles.container, darkModeEnabled && styles.containerDark]}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View
+        style={[styles.container, darkModeEnabled && styles.containerDark]}
+      >
+        <TopBar
+          onToggleYearPicker={() => setShowYearPicker(prev => !prev)}
+          showYearPicker={showYearPicker}
+          yearOptions={yearOptions}
+          selectedYear={selectedYear}
+          onSelectYear={handleSelectYear}
+          onSearch={() => setCurrentScreen('search')}
+        />
+        <FlingGestureHandler
+          direction={Directions.LEFT}
+          onHandlerStateChange={({ nativeEvent }) => {
+            if (nativeEvent.state === State.ACTIVE) {
+              navigateToNext();
+            }
+          }}
         >
-          <TopBar
-            onToggleYearPicker={() => setShowYearPicker(prev => !prev)}
-            showYearPicker={showYearPicker}
-            yearOptions={yearOptions}
-            selectedYear={selectedYear}
-            onSelectYear={handleSelectYear}
-            onSearch={() => setCurrentScreen('search')}
-          />
-          <FlingGestureHandler
-            direction={Directions.LEFT}
-            onHandlerStateChange={({ nativeEvent }) => {
-              if (nativeEvent.state === State.ACTIVE) {
-                navigateToNext();
-              }
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <FlingGestureHandler
-                direction={Directions.RIGHT}
-                onHandlerStateChange={({ nativeEvent }) => {
-                  if (nativeEvent.state === State.ACTIVE) {
-                    navigateToPrev();
-                  }
-                }}
+          <View style={{ flex: 1 }}>
+            <FlingGestureHandler
+              direction={Directions.RIGHT}
+              onHandlerStateChange={({ nativeEvent }) => {
+                if (nativeEvent.state === State.ACTIVE) {
+                  navigateToPrev();
+                }
+              }}
+            >
+              <View
+                style={[
+                  styles.contentArea,
+                  darkModeEnabled && styles.contentAreaDark,
+                ]}
               >
-                <View
-                  style={[
-                    styles.contentArea,
-                    darkModeEnabled && styles.contentAreaDark,
-                  ]}
-                >
-                  {renderCurrent()}
-                </View>
-              </FlingGestureHandler>
-            </View>
-          </FlingGestureHandler>
-          <View
-            style={[
-              styles.bottomNav,
-              darkModeEnabled && styles.bottomNavDark,
-              {
-                backgroundColor: darkModeEnabled
-                  ? '#111827'
-                  : colors.bgSecondary,
-              },
-            ]}
-          >
-            {[
-              ['Ημέρα', 'home-outline', 'day'],
-              ['Μήνας', 'calendar-month-outline', 'month'],
-              ['Εβδομάδα', 'calendar-week-outline', 'week'],
-              ['Δικοί μου', 'account-group-outline', 'close'],
-              ['Ρυθμίσεις', 'cog-outline', 'settings'],
-            ].map(([label, icon, screen]) => (
-              <TouchableOpacity
-                key={String(screen)}
-                style={styles.navButton}
-                onPress={() => setCurrentScreen(screen as any)}
-              >
-                <Icon
-                  name={String(icon)}
-                  size={24}
-                  color={
+                {renderCurrent()}
+              </View>
+            </FlingGestureHandler>
+          </View>
+        </FlingGestureHandler>
+        <View
+          style={[
+            styles.bottomNav,
+            darkModeEnabled && styles.bottomNavDark,
+            {
+              backgroundColor: darkModeEnabled
+                ? '#111827'
+                : colors.bgSecondary,
+              paddingBottom: Math.max(insets.bottom, 8),
+            },
+          ]}
+        >
+          {[
+            ['Ημέρα', 'home-outline', 'day'],
+            ['Μήνας', 'calendar-month-outline', 'month'],
+            ['Εβδομάδα', 'calendar-week-outline', 'week'],
+            ['Δικοί μου', 'account-group-outline', 'close'],
+            ['Ρυθμίσεις', 'cog-outline', 'settings'],
+          ].map(([label, icon, screen]) => (
+            <TouchableOpacity
+              key={String(screen)}
+              style={styles.navButton}
+              onPress={() => setCurrentScreen(screen as any)}
+            >
+              <Icon
+                name={String(icon)}
+                size={24}
+                color={
+                  currentScreen === screen
+                    ? darkModeEnabled
+                      ? primaryColorLight
+                      : primaryColor
+                    : '#6b7280'
+                }
+              />
+              <Text
+                style={{
+                  color:
                     currentScreen === screen
                       ? darkModeEnabled
                         ? primaryColorLight
                         : primaryColor
-                      : '#6b7280'
-                  }
-                />
-                <Text
-                  style={{
-                    color:
-                      currentScreen === screen
-                        ? darkModeEnabled
-                          ? primaryColorLight
-                          : primaryColor
-                        : '#6b7280',
-                    marginTop: 4,
-                  }}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                      : '#6b7280',
+                  marginTop: 4,
+                  fontSize: 10,
+                  textAlign: 'center',
+                }}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -1017,10 +1100,8 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
   },
@@ -1028,9 +1109,9 @@ const styles = StyleSheet.create({
     borderTopColor: '#374151',
   },
   navButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
 });

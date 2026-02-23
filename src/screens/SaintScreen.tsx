@@ -9,23 +9,32 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../AppContext';
+import { Saint } from '../types/saint';
 
 interface SaintScreenProps {
   onBack?: () => void;
-  saintName?: string;
-  imageUri?: string;
-  biography?: string;
-  apolitikio?: string;
+  saint?: Saint;
+  allSaints?: Saint[];
+  onNextSaint?: () => void;
+  onPrevSaint?: () => void;
 }
 
 export default function SaintScreen({
   onBack,
-  saintName = 'Όνομα Αγίου',
-  imageUri,
-  biography = 'Εδώ θα εμφανίζεται η βιογραφία του Αγίου...',
-  apolitikio = 'Εδώ θα εμφανίζεται το απολυτίκιο του Αγίου...',
+  saint,
+  allSaints = [],
+  onNextSaint,
+  onPrevSaint,
 }: SaintScreenProps) {
   const { darkModeEnabled, primaryColor, effectiveTextColor, addAlpha, backgroundColor } = useAppContext();
+
+  const currentIndex = allSaints.findIndex(s => s.id === saint?.id);
+  const hasMultiple = allSaints.length > 1;
+
+  const saintName = saint?.name || 'Όνομα Αγίου';
+  const imageUri = saint?.image_url;
+  const biography = saint?.bio || 'Εδώ θα εμφανίζεται η βιογραφία του Αγίου...';
+  const apolitikio = saint?.apolitikio || 'Εδώ θα εμφανίζεται το απολυτίκιο του Αγίου...';
 
   const dynamicContainerStyle = {
     backgroundColor: darkModeEnabled ? '#111827' : backgroundColor,
@@ -36,7 +45,7 @@ export default function SaintScreen({
   };
 
   const dynamicCardStyle = {
-    backgroundColor: darkModeEnabled ? '#1F2937' : '#fff',
+    backgroundColor: darkModeEnabled ? '#1F2937' : addAlpha(primaryColor, 0.05),
     borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.15),
     borderWidth: 1,
   };
@@ -45,13 +54,47 @@ export default function SaintScreen({
     <View style={[styles.container, dynamicContainerStyle]}>
       {/* Custom Header */}
       <View style={[styles.header, dynamicHeaderStyle]}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-        )}
-        <Text style={styles.headerTitle}>{saintName}</Text>
-        <View style={{ width: 40 }} /> 
+        <View style={styles.headerSide}>
+          {onBack && (
+            <TouchableOpacity onPress={onBack} style={styles.headerButton}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {saintName}
+        </Text>
+
+        <View style={[styles.headerSide, { flexDirection: 'row', justifyContent: 'flex-end' }]}>
+          {hasMultiple && (
+            <>
+              <TouchableOpacity 
+                onPress={onPrevSaint} 
+                style={[styles.headerButton, { marginRight: 8 }]}
+                disabled={currentIndex === 0}
+              >
+                <Ionicons 
+                  name="chevron-back-outline" 
+                  size={22} 
+                  color={currentIndex === 0 ? 'rgba(255,255,255,0.4)' : '#fff'} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={onNextSaint} 
+                style={styles.headerButton}
+                disabled={currentIndex === allSaints.length - 1}
+              >
+                <Ionicons 
+                  name="chevron-forward-outline" 
+                  size={22} 
+                  color={currentIndex === allSaints.length - 1 ? 'rgba(255,255,255,0.4)' : '#fff'} 
+                />
+              </TouchableOpacity>
+            </>
+          )}
+          {!hasMultiple && <View style={{ width: 40 }} />}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -96,16 +139,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  headerSide: {
+    width: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    padding: 6,
+  },
   headerTitle: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
-  },
-  backButton: {
-    padding: 4,
-    width: 40,
   },
   scrollContent: {
     padding: 16,
