@@ -71,10 +71,10 @@ export const searchNames = async (
   const qLower = normalizeGreekName(q);
   
   for (const me of moving) {
-    if (
-      me.names &&
-      me.names.some((n: string) => normalizeGreekName(n).includes(qLower))
-    ) {
+    const namesMatch = me.names && me.names.some((n: string) => normalizeGreekName(n).includes(qLower));
+    const celebrationsMatch = me.celebrations && me.celebrations.some((c: string) => normalizeGreekName(c).includes(qLower));
+    
+    if (namesMatch || celebrationsMatch) {
       found.push({
         day: me.day,
         month: me.month,
@@ -83,6 +83,27 @@ export const searchNames = async (
       });
     }
   }
+
+  // 2.5 Search pure movable feasts (calculated dates like "Καθαρά Δευτέρα")
+  const mFeasts = (await import('./calculateMovingCeleb')).movableFeasts(year);
+  Object.entries(mFeasts).forEach(([feastName, date]) => {
+    if (normalizeGreekName(feastName).includes(qLower)) {
+      // Avoid duplicate adds if already in movable nameday entries
+      const monthLabel = GREEK_MONTHS[date.getUTCMonth()];
+      const day = date.getUTCDate();
+      
+      const alreadyFound = found.some(f => f.day === day && f.month === monthLabel && f.celebrations?.includes(feastName));
+      
+      if (!alreadyFound) {
+        found.push({
+          day: day,
+          month: monthLabel,
+          names: [],
+          celebrations: [feastName],
+        });
+      }
+    }
+  });
 
   if (found.length === 0) {
     return { results: [], message: 'Δεν βρέθηκε το όνομα.' };

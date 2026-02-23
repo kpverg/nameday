@@ -60,7 +60,7 @@ function AppContent() {
   const [monthWorldDays, setMonthWorldDays] = useState<WorldDay[]>([]);
   const [todaySaints, setTodaySaints] = useState<Saint[]>([]);
 
-  useNotifications(fests, worldDays); // Initialize notifications with remote data
+  useNotifications(fests, worldDays, todaySaints); // Initialize notifications with remote data
 
   useEffect(() => {
     async function fetchFests() {

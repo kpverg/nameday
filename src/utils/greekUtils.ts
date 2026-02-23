@@ -159,11 +159,11 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
       return (
         cWord === nWord ||
         cWordStripped === nWordStripped ||
-        (cWord.length >= 6 && nWord.startsWith(cWord)) ||
-        (nWord.length >= 6 && cWord.startsWith(nWord)) ||
-        (cWordStripped.length >= 6 &&
-          nWordStripped.startsWith(cWordStripped)) ||
-        (nWordStripped.length >= 6 && cWordStripped.startsWith(nWordStripped))
+        (cWord.length >= 5 && nWord.startsWith(cWord.substring(0, 5))) ||
+        (nWord.length >= 5 && cWord.startsWith(nWord.substring(0, 5))) ||
+        (cWordStripped.length >= 5 &&
+          nWordStripped.startsWith(cWordStripped.substring(0, 5))) ||
+        (nWordStripped.length >= 5 && cWordStripped.startsWith(nWordStripped.substring(0, 5)))
       );
     });
   });
@@ -194,8 +194,8 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
     return namedayGreeklishWords.some(nWord => {
       return (
         cWord === nWord ||
-        (cWord.length >= 6 && nWord.startsWith(cWord)) ||
-        (nWord.length >= 6 && cWord.startsWith(nWord))
+        (cWord.length >= 5 && nWord.startsWith(cWord.substring(0, 5))) ||
+        (nWord.length >= 5 && cWord.startsWith(nWord.substring(0, 5)))
       );
     });
   });

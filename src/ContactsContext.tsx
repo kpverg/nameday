@@ -139,9 +139,19 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         groups.forEach((group: any) => {
           group.members.forEach((member: any) => {
             // Find contact from recordID stored in group if available
-            const associatedContact = group.contactRecordID 
+            let associatedContact = group.contactRecordID 
               ? currentContacts.find((c: any) => c.recordID === group.contactRecordID)
               : null;
+            
+            // Fallback for older data: Try to find by name if we have an assocName
+            if (!associatedContact && group.assocName) {
+              const normalizedAssoc = group.assocName.trim().toLowerCase();
+              associatedContact = currentContacts.find((c: any) => {
+                const displayName = (c.displayName || '').toLowerCase();
+                const fullName = `${c.givenName || ''} ${c.familyName || ''}`.trim().toLowerCase();
+                return displayName === normalizedAssoc || fullName === normalizedAssoc;
+              });
+            }
             
             const phoneNumber = associatedContact?.phoneNumbers?.[0]?.number 
               || group.contactPhoneNumber 
@@ -167,17 +177,11 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const getContactsForNameday = (names: string[]): Contact[] => {
     if (!names || names.length === 0) return [];
 
-    // Pre-calculate greeklish for all nameday names
-    const namedayGreeklish = names.map(name => ({
-      original: name,
-      greeklish: greekToGreeklish(name),
-    }));
-
     return contacts.filter(contact => {
-      const givenName = contact.givenName;
-
-      return namedayGreeklish.some(nameday =>
-        namesMatch(givenName, nameday.original),
+      return names.some(namedayName => 
+        namesMatch(contact.givenName, namedayName) ||
+        namesMatch(contact.familyName, namedayName) ||
+        namesMatch(contact.displayName, namedayName)
       );
     });
   };
@@ -214,37 +218,12 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const searchContactsByGreeklish = (query: string): Contact[] => {
     if (!query.trim()) return [];
 
-    const normalizedQuery = normalizeGreekName(greeklishToGreek(query));
-    if (!normalizedQuery) return [];
-
     return contacts.filter(contact => {
-      const normalizedGivenName = normalizeGreekName(contact.givenName);
-      const normalizedFamilyName = normalizeGreekName(contact.familyName);
-      const normalizedDisplayName = normalizeGreekName(contact.displayName);
-
-      // Exact match
-      if (
-        normalizedGivenName === normalizedQuery ||
-        normalizedFamilyName === normalizedQuery ||
-        normalizedDisplayName === normalizedQuery
-      ) {
-        return true;
-      }
-
-      // Word-level and prefix matching
-      const queryWords = normalizedQuery.split(/\s+/);
-      const nameWords = [
-        ...normalizedGivenName.split(/\s+/),
-        ...normalizedFamilyName.split(/\s+/),
-      ];
-
-      return queryWords.some(qWord =>
-        nameWords.some(
-          nWord =>
-            nWord === qWord ||
-            (qWord.length >= 3 && nWord.startsWith(qWord)) ||
-            (nWord.length >= 3 && qWord.startsWith(nWord)),
-        ),
+      // Use the same namesMatch logic for consistency
+      return (
+        namesMatch(contact.displayName, query) ||
+        namesMatch(contact.givenName, query) ||
+        namesMatch(contact.familyName, query)
       );
     });
   };

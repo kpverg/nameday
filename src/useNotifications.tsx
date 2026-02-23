@@ -13,8 +13,13 @@ import {
 } from './services/myPeopleCelebrationService';
 import type { Fest } from './types/fest';
 import type { WorldDay } from './services/apiservices/worldday';
+import type { Saint } from './types/saint';
 
-export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDay[]) => {
+export const useNotifications = (
+  remoteFests?: Fest[],
+  remoteWorldDays?: WorldDay[],
+  remoteSaints?: Saint[],
+) => {
   const { notificationsEnabled, globalDaysEnabled } = useAppContext();
   const { getContactsForNameday, getMyPeopleForNameday, myPeople } = useContacts();
 
@@ -59,10 +64,13 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
       worldDays,
       contactsCelebrating,
       myPeopleCelebrating: allMyPeople,
+      saints: remoteSaints || [],
     };
-  }, [globalDaysEnabled, getContactsForNameday, getMyPeopleForNameday, myPeople]);
+  }, [globalDaysEnabled, getContactsForNameday, getMyPeopleForNameday, myPeople, remoteFests, remoteWorldDays, remoteSaints]);
 
   const scheduleDailyNotification = useCallback(() => {
+    if (!notificationsEnabled) return;
+    
     const data = getTodaysCelebrations();
 
     let titleLabel = '🎉 Σημερινές Γιορτές';
@@ -70,14 +78,19 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
 
     // Add celebrations
     if (data.celebrations.length > 0) {
-      message += `Γιορτάζουν: ${data.celebrations.join(', ')}\n`;
+      message += `Εορτές: ${data.celebrations.join(', ')}\n\n`;
     }
 
-    // Add names
+    // Add names (if no celebrations or just to be thorough)
     if (data.names.length > 0) {
-      message += `Ονόματα: ${data.names.slice(0, 5).join(', ')}${
-        data.names.length > 5 ? '...' : ''
-      }\n`;
+      message += `Ονόματα: ${data.names.slice(0, 10).join(', ')}${
+        data.names.length > 10 ? '...' : ''
+      }\n\n`;
+    }
+
+    // World Days
+    if (data.worldDays.length > 0) {
+      message += `🌍 Παγκόσμιες: ${data.worldDays.join(', ')}\n\n`;
     }
 
     // Add contacts
@@ -86,11 +99,11 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
         .slice(0, 3)
         .map(c => c.displayName)
         .join(', ');
-      message += `Επαφές: ${contactNames}${
+      message += `👥 Επαφές: ${contactNames}${
         data.contactsCelebrating.length > 3
           ? ` και ${data.contactsCelebrating.length - 3} ακόμα`
           : ''
-      }\n`;
+      }\n\n`;
     }
 
     // Add my people celebrating
@@ -99,12 +112,29 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
         .slice(0, 3)
         .map((m: any) => formatMyPersonCelebration(m))
         .join(', ');
-      message += `Δικοί μου άνθρωποι: ${memberNames}${
+      message += `❤️ Δικοί μου: ${memberNames}${
         data.myPeopleCelebrating.length > 3
           ? ` και ${data.myPeopleCelebrating.length - 3} ακόμα`
           : ''
-      }`;
+      }\n\n`;
     }
+
+    // Saint info
+    if (data.saints.length > 0) {
+      const saintNames = data.saints.map(s => s.name).join(', ');
+      message += `🙏 Ευλογία της ημέρας: ${saintNames}\n`;
+      
+      const firstSaint = data.saints[0];
+      if (firstSaint.bio) {
+        // Strip some markdown or long content if needed, but show a bit
+        const bioSnippet = firstSaint.bio.length > 120 
+          ? firstSaint.bio.substring(0, 117).replace(/\n/g, ' ') + '...' 
+          : firstSaint.bio.replace(/\n/g, ' ');
+        message += `${bioSnippet}\n`;
+      }
+    }
+
+    message = message.trim();
 
     if (message) {
       // Find someone to call (prioritize My People, then Contacts)
@@ -129,7 +159,7 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
             pressAction: { id: 'call' },
           });
           actions.push({
-            title: `💬 Μήνυμα ${name.split(' ')[0]}`,
+            title: `💬 SMS ${name.split(' ')[0]}`,
             pressAction: { id: 'sms' },
           });
         }
@@ -141,7 +171,7 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
         8,
         0,
         titleLabel,
-        message.trim(),
+        message,
         actions,
         notificationData
       );
@@ -152,12 +182,12 @@ export const useNotifications = (remoteFests?: Fest[], remoteWorldDays?: WorldDa
         15,
         0,
         titleLabel,
-        message.trim(),
+        message,
         actions,
         notificationData
       );
     }
-  }, [getTodaysCelebrations]);
+  }, [notificationsEnabled, getTodaysCelebrations]);
 
   useEffect(() => {
     // Configure notifications

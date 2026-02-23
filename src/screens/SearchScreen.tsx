@@ -32,15 +32,27 @@ export function SearchScreen({ onBack }: Props) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  const findName = async () => {
-    const qLower = normalizeGreekName(query);
+  // Fixed list of common moving celebrations for autofill suggestions
+  const MOVING_SUGGESTIONS = [
+    'Πάσχα', 'Καθαρά Δευτέρα', 'Κυριακή των Βαΐων', 'Ανάληψη', 'Πεντηκοστή',
+    'Αγίου Πνεύματος', 'Τσικνοπέμπτη', 'Σάββατο του Λαζάρου', 'Ψυχοσάββατο',
+    'Κυριακή της Ορθοδοξίας', 'Μεγάλη Παρασκευή', 'Ζωοδόχος Πηγή'
+  ];
+
+  const findName = async (searchQuery?: string) => {
+    const finalQuery = searchQuery || query;
+    if (!finalQuery.trim()) return;
+
+    const qLower = normalizeGreekName(finalQuery);
     setNormalizedQuery(qLower);
     setSearching(true);
+    setSuggestions([]);
 
     try {
       const { results: searchResults, message: searchMessage } = await searchNames(
-        query,
+        finalQuery,
         selectedYear,
       );
 
@@ -51,6 +63,19 @@ export function SearchScreen({ onBack }: Props) {
       setMessage('Σφάλμα κατά την αναζήτηση.');
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleTextChange = (text: string) => {
+    setQuery(text);
+    if (text.length > 1) {
+      const qLower = normalizeGreekName(text);
+      const filtered = MOVING_SUGGESTIONS.filter(s => 
+        normalizeGreekName(s).includes(qLower)
+      );
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
     }
   };
 
@@ -71,27 +96,52 @@ export function SearchScreen({ onBack }: Props) {
       </View>
 
       <View style={styles.body}>
-        <TextInput
-          placeholder="Γράψτε όνομα"
-          value={query}
-          onChangeText={setQuery}
-          style={[
-            styles.input,
-            {
-              backgroundColor: darkModeEnabled ? '#111827' : '#fff',
-              color: effectiveTextColor,
-              borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.2),
-            },
-          ]}
-          placeholderTextColor={darkModeEnabled ? '#9CA3AF' : '#6b7280'}
-          autoCapitalize="words"
-        />
+        <View style={{ zIndex: 10 }}>
+          <TextInput
+            placeholder="Γράψτε όνομα ή γιορτή..."
+            value={query}
+            onChangeText={handleTextChange}
+            style={[
+              styles.input,
+              {
+                backgroundColor: darkModeEnabled ? '#111827' : '#fff',
+                color: effectiveTextColor,
+                borderColor: darkModeEnabled ? '#374151' : addAlpha(primaryColor, 0.2),
+              },
+            ]}
+            placeholderTextColor={darkModeEnabled ? '#9CA3AF' : '#6b7280'}
+            autoCapitalize="words"
+          />
+          {suggestions.length > 0 && (
+            <View style={[
+              styles.suggestionsBox, 
+              { 
+                backgroundColor: darkModeEnabled ? '#1F2937' : '#fff',
+                borderColor: darkModeEnabled ? '#374151' : '#ddd'
+              }
+            ]}>
+              {suggestions.map((s, i) => (
+                <TouchableOpacity 
+                  key={i} 
+                  style={styles.suggestionItem}
+                  onPress={() => {
+                    setQuery(s);
+                    findName(s);
+                  }}
+                >
+                  <Text style={{ color: effectiveTextColor }}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
         <TouchableOpacity
           style={[
             styles.findButtonContainer,
             { backgroundColor: primaryColor },
           ]}
-          onPress={findName}
+          onPress={() => findName()}
         >
           <Text style={styles.findButtonText}>Αναζήτηση</Text>
         </TouchableOpacity>
@@ -207,6 +257,25 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  suggestionsBox: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    borderRadius: 8,
+    borderWidth: 1,
+    zIndex: 100,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   backButton: { marginRight: 8 },
   title: { fontSize: 18, fontWeight: '600' },

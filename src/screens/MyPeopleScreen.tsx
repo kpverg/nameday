@@ -200,9 +200,20 @@ export default function MyPeopleScreen() {
                     setAssocQuery(s.assocName || '');
                     
                     // Try to find the associated contact to restore it in the picker
-                    const existingContact = s.contactRecordID 
+                    let existingContact = s.contactRecordID 
                       ? contacts.find((c: any) => c.recordID === s.contactRecordID)
                       : null;
+                    
+                    // Fallback to name match for older data if recordID is missing
+                    if (!existingContact && s.assocName) {
+                      const normalizedAssoc = s.assocName.trim().toLowerCase();
+                      existingContact = contacts.find((c: any) => {
+                        const displayName = (c.displayName || '').toLowerCase();
+                        const fullName = `${c.givenName || ''} ${c.familyName || ''}`.trim().toLowerCase();
+                        return displayName === normalizedAssoc || fullName === normalizedAssoc;
+                      });
+                    }
+                    
                     setSelectedPersonContact(existingContact || null);
                     
                     setShowModal(true);
