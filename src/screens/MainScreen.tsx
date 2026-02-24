@@ -48,13 +48,13 @@ import type { WorldDay } from '../services/apiservices/worldday';
 import type { Saint } from '../types/saint';
 
 function DayScreenContent({ 
-  supabaseFests, 
-  supabaseWorldDays,
+  dbFests, 
+  dbWorldDays,
   todaySaints,
   onSelectSaint,
 }: { 
-  supabaseFests?: Fest[];
-  supabaseWorldDays?: WorldDay[];
+  dbFests?: Fest[];
+  dbWorldDays?: WorldDay[];
   todaySaints?: Saint[];
   onSelectSaint?: (saint: Saint) => void;
 }) {
@@ -101,23 +101,23 @@ function DayScreenContent({
       const entry = findNamedayLocal(now);
       const localNames = entry?.names ?? [];
       
-      // Merge Supabase names with local movable names
-      const supabaseNames = supabaseFests?.[0]?.names && supabaseFests[0].names !== 'NULL' ? supabaseFests[0].names.split(',').map(n => n.trim()) : [];
-      const names = Array.from(new Set([...localNames, ...supabaseNames]));
+      // Merge database names with local movable names
+      const dbNames = dbFests?.[0]?.names && dbFests[0].names !== 'NULL' ? dbFests[0].names.split(',').map(n => n.trim()) : [];
+      const names = Array.from(new Set([...localNames, ...dbNames]));
       
       setNamesToday(names);
       
-      // Merge Supabase celebrations with local movable celebrations
-      const supabaseCelebs = supabaseFests?.[0]?.celebrations && supabaseFests[0].celebrations !== 'NULL' ? supabaseFests[0].celebrations.split(',').map(c => c.trim()) : [];
+      // Merge database celebrations with local movable celebrations
+      const dbCelebs = dbFests?.[0]?.celebrations && dbFests[0].celebrations !== 'NULL' ? dbFests[0].celebrations.split(',').map(c => c.trim()) : [];
       const localCelebs = entry?.celebrations ?? [];
-      const allCelebs = Array.from(new Set([...localCelebs, ...supabaseCelebs]));
+      const allCelebs = Array.from(new Set([...localCelebs, ...dbCelebs]));
       
       setCelebrationToday(allCelebs.length > 0 ? allCelebs.join(', ') : null);
 
       if (globalDaysEnabled) {
-        // Use Supabase world days if available, otherwise fallback to local
-        const supabaseWD = supabaseWorldDays?.map(w => w.title).filter(Boolean).join(', ');
-        setWorldDayToday(supabaseWD || findWorldDayLocal(now));
+        // Use database world days if available, otherwise fallback to local
+        const dbWD = dbWorldDays?.map(w => w.title).filter(Boolean).join(', ');
+        setWorldDayToday(dbWD || findWorldDayLocal(now));
       } else {
         setWorldDayToday(null);
       }
@@ -170,8 +170,8 @@ function DayScreenContent({
     getContactsForNameday,
     getMyPeopleForNameday,
     myPeople,
-    supabaseFests,
-    supabaseWorldDays,
+    dbFests,
+    dbWorldDays,
   ]);
 
   return (
@@ -292,7 +292,11 @@ function DayScreenContent({
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               {todaySaints[activeSaintIndex].image_url ? (
                 <Image
-                  source={{ uri: todaySaints[activeSaintIndex].image_url }}
+                  source={{ 
+                    uri: todaySaints[activeSaintIndex].image_url.startsWith('img/') 
+                      ? `asset:/${todaySaints[activeSaintIndex].image_url}` 
+                      : todaySaints[activeSaintIndex].image_url 
+                  }}
                   style={{ width: 40, height: 40, borderRadius: 4, marginRight: 15 }}
                   resizeMode="contain"
                 />
@@ -568,6 +572,7 @@ function TopBar({
         <TouchableOpacity
           accessibilityRole="button"
           onPress={onToggleYearPicker}
+          style={{ padding: 6 }}
         >
           <Ionicons name="calendar-outline" size={26} color="#fff" />
         </TouchableOpacity>
@@ -579,7 +584,7 @@ function TopBar({
           style={styles.iconButton}
           onPress={onSearch}
         >
-          <Ionicons name="search" size={18} color="#fff" />
+          <Ionicons name="search" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
       {showYearPicker && (
@@ -621,16 +626,16 @@ const colors = {
 };
 
 export default function MainScreen({ 
-  supabaseFests,
-  supabaseMonthFests,
-  supabaseWorldDays,
-  supabaseMonthWorldDays,
+  dbFests,
+  dbMonthFests,
+  dbWorldDays,
+  dbMonthWorldDays,
   todaySaints,
 }: { 
-  supabaseFests?: Fest[];
-  supabaseMonthFests?: Fest[];
-  supabaseWorldDays?: WorldDay[];
-  supabaseMonthWorldDays?: WorldDay[];
+  dbFests?: Fest[];
+  dbMonthFests?: Fest[];
+  dbWorldDays?: WorldDay[];
+  dbMonthWorldDays?: WorldDay[];
   todaySaints?: Saint[];
 }) {
   const {
@@ -689,8 +694,8 @@ export default function MainScreen({
       case 'day':
         return (
           <DayScreenContent 
-            supabaseFests={supabaseFests} 
-            supabaseWorldDays={supabaseWorldDays} 
+            dbFests={dbFests} 
+            dbWorldDays={dbWorldDays} 
             todaySaints={todaySaints}
             onSelectSaint={(s) => {
               setSelectedSaint(s);
@@ -701,15 +706,15 @@ export default function MainScreen({
       case 'month':
         return (
           <TotalCelebrationsScreen 
-            supabaseFests={supabaseMonthFests} 
-            supabaseWorldDays={supabaseMonthWorldDays} 
+            dbFests={dbMonthFests} 
+            dbWorldDays={dbMonthWorldDays} 
           />
         );
       case 'week':
         return (
           <WeekScreen 
-            supabaseMonthFests={supabaseMonthFests} 
-            supabaseMonthWorldDays={supabaseMonthWorldDays} 
+            dbMonthFests={dbMonthFests} 
+            dbMonthWorldDays={dbMonthWorldDays} 
           />
         );
       case 'close':
@@ -748,8 +753,8 @@ export default function MainScreen({
       default:
         return (
           <DayScreenContent 
-            supabaseFests={supabaseFests} 
-            supabaseWorldDays={supabaseWorldDays} 
+            dbFests={dbFests} 
+            dbWorldDays={dbWorldDays} 
             todaySaints={todaySaints}
             onSelectSaint={(s) => {
               setSelectedSaint(s);
@@ -877,8 +882,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingBottom: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
     position: 'relative',
   },
   topBarDark: {
@@ -886,6 +891,7 @@ const styles = StyleSheet.create({
   topLeft: {
     width: 48,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   topRight: {
     width: 80,
@@ -894,6 +900,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
+    padding: 6,
     marginLeft: 14,
   },
   yearPickerPanel: {
@@ -935,8 +942,10 @@ const styles = StyleSheet.create({
   },
   topTitle: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    flex: 1,
   },
   screenContainer: {
     flex: 1,

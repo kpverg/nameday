@@ -167,23 +167,3 @@ export const getWeekCelebrations = (
 
   return result;
 };
-
-// export const findWorldDayLocal = (dt: Date): string | null => {
-//   const monthName = GREEK_MONTHS[dt.getMonth()];
-//   const dayNum = dt.getDate();
-//   const dayString = `${dayNum} ${monthName}`;
-//   // Search for exact match
-//   return (
-//     worldDaysJanFeb.find(
-//       wd => wd.date === dayString || wd.date.includes(dayString),
-//     )?.title ?? null
-//   );
-// };
-
-// export const formatDate = (date: Date = new Date()) =>
-//   date.toLocaleDateString('el-GR', {
-//     weekday: 'long',
-//     year: 'numeric',
-//     month: 'long',
-//     day: 'numeric',
-//   });

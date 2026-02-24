@@ -32,7 +32,13 @@ export default function SaintScreen({
   const hasMultiple = allSaints.length > 1;
 
   const saintName = saint?.name || 'Όνομα Αγίου';
-  const imageUri = saint?.image_url;
+  let imageUri = saint?.image_url;
+  
+  // Resolve local image paths for Android assets
+  if (imageUri && imageUri.startsWith('img/')) {
+    imageUri = `asset:/${imageUri}`;
+  }
+  
   const biography = saint?.bio || 'Εδώ θα εμφανίζεται η βιογραφία του Αγίου...';
   const apolitikio = saint?.apolitikio || 'Εδώ θα εμφανίζεται το απολυτίκιο του Αγίου...';
 

@@ -1,4 +1,4 @@
-import supabase from '../../utils/supabase'
+import { executeQuery } from '../sqliteService'
 
 export interface WorldDay {
   id?: number
@@ -9,46 +9,22 @@ export interface WorldDay {
   [key: string]: any
 }
 
-/** Fetch all world days */
-export async function getAllWorldDays(): Promise<WorldDay[]> {
-  const { data, error } = await supabase.from('worldDay').select('*')
-  if (error) {
-    console.error('getAllWorldDays error:', error)
-    throw error
-  }
-  return (data ?? []) as WorldDay[]
-}
-
 /** Fetch world days for a specific day+month */
 export async function getWorldDaysByDayMonth(day: number | string, month: string): Promise<WorldDay[]> {
-  console.log(`Querying worldDay for day=${day}, month=${month}`)
-  const { data, error } = await supabase
-    .from('worldDay')
-    .select('id, day, month, title, description')
-    .eq('day', day)
-    .eq('month', month)
-
-  if (error) {
-    console.error('getWorldDaysByDayMonth error:', error)
-    throw error
-  }
-  return (data ?? []) as WorldDay[]
+  const d = day.toString().trim();
+  const m = month.trim();
+  return await executeQuery<WorldDay>(
+    'SELECT id, day, month, title, description FROM worldday WHERE TRIM(day) = ? AND TRIM(month) = ?',
+    [d, m]
+  );
 }
 
 /** Fetch all world days for a month (used by month view) */
 export async function getWorldDaysByMonth(month: string): Promise<WorldDay[]> {
-  console.log(`Querying worldDay for month=${month}`)
-  const { data, error } = await supabase
-    .from('worldDay')
-    .select('id, day, month, title, description')
-    .ilike('month', month.trim())
-    .order('day', { ascending: true })
-
-  if (error) {
-    console.error('getWorldDaysByMonth error:', error)
-    throw error
-  }
-  return (data ?? []) as WorldDay[]
+  return await executeQuery<WorldDay>(
+    'SELECT id, day, month, title, description FROM worldday WHERE month = ? ORDER BY day ASC',
+    [month.trim()]
+  );
 }
 
 /** Convenience: today's world days */
@@ -74,7 +50,6 @@ export async function getTodayWorldDays(): Promise<WorldDay[]> {
 }
 
 export default {
-  getAllWorldDays,
   getWorldDaysByDayMonth,
   getWorldDaysByMonth,
   getTodayWorldDays,

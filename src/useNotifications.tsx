@@ -28,11 +28,11 @@ export const useNotifications = (
     const entry = findNamedayLocal(today);
     
     // Remote data merging
-    const supabaseNames = remoteFests?.[0]?.names ? (remoteFests[0].names as string).split(',').map(n => n.trim()) : [];
-    const supabaseCelebs = remoteFests?.[0]?.celebrations ? (remoteFests[0].celebrations as string).split(',').map(c => c.trim()) : [];
-
-    const names = supabaseNames.length > 0 ? supabaseNames : (entry?.names || []);
-    const celebrations = supabaseCelebs.length > 0 ? supabaseCelebs : (entry?.celebrations || []);
+const dbNames = remoteFests?.[0]?.names ? (remoteFests[0].names as string).split(',').map(n => n.trim()) : [];
+    const dbCelebs = remoteFests?.[0]?.celebrations ? (remoteFests[0].celebrations as string).split(',').map(c => c.trim()) : [];
+    
+    const names = dbNames.length > 0 ? dbNames : (entry?.names || []);
+    const celebrations = dbCelebs.length > 0 ? dbCelebs : (entry?.celebrations || []);
 
     // Get world days if enabled
     let worldDays: string[] = [];

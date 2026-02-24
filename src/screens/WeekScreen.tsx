@@ -280,11 +280,11 @@ const DayCard = React.memo(({
 });
 
 export const WeekScreen = ({
-  supabaseMonthFests,
-  supabaseMonthWorldDays,
+  dbMonthFests,
+  dbMonthWorldDays,
 }: {
-  supabaseMonthFests?: Fest[];
-  supabaseMonthWorldDays?: WorldDay[];
+  dbMonthFests?: Fest[];
+  dbMonthWorldDays?: WorldDay[];
 }) => {
   const {
     globalDaysEnabled,
@@ -302,8 +302,8 @@ export const WeekScreen = ({
     getMyPeopleForNameday,
     myPeople,
   } = useContacts();
-  const [supabaseFests, setSupabaseFests] = useState<Fest[]>(supabaseMonthFests || []);
-  const [supabaseWorldDays, setSupabaseWorldDays] = useState<WorldDay[]>(supabaseMonthWorldDays || []);
+  const [dbFests, setDbFests] = useState<Fest[]>(dbMonthFests || []);
+  const [dbWorldDays, setDbWorldDays] = useState<WorldDay[]>(dbMonthWorldDays || []);
   const flatListRef = useRef<FlatList>(null);
   const hasInitialScrolled = useRef(false);
 
@@ -323,7 +323,7 @@ export const WeekScreen = ({
   const numDays = useMemo(() => today.getDay() + 1 + 7, [today]);
 
   useEffect(() => {
-    const fetchSupabaseData = async () => {
+    const fetchSQLiteData = async () => {
       try {
         const currentMonthName = GREEK_MONTHS[today.getMonth()];
         const month1 = GREEK_MONTHS[startOfCurrentWeek.getMonth()];
@@ -331,10 +331,10 @@ export const WeekScreen = ({
         endDay.setDate(startOfCurrentWeek.getDate() + numDays);
         const month2 = GREEK_MONTHS[endDay.getMonth()];
 
-        let fests: Fest[] = supabaseMonthFests ? [...supabaseMonthFests] : [];
-        let wDays: WorldDay[] = supabaseMonthWorldDays ? [...supabaseMonthWorldDays] : [];
+        let fests: Fest[] = dbMonthFests ? [...dbMonthFests] : [];
+        let wDays: WorldDay[] = dbMonthWorldDays ? [...dbMonthWorldDays] : [];
 
-        // Fetch month1 if it's different from the current month (which is what supabaseMonthFests has)
+        // Fetch month1 if it's different from the current month
         if (month1 !== currentMonthName) {
           const f1 = await getFestsByMonth(month1);
           fests = [...fests, ...f1];
@@ -354,15 +354,15 @@ export const WeekScreen = ({
           }
         }
         
-        setSupabaseFests(fests);
-        setSupabaseWorldDays(wDays);
+        setDbFests(fests);
+        setDbWorldDays(wDays);
       } catch (err) {
-        console.error('Error fetching week supabase data:', err);
+        console.error('Error fetching week SQLite data:', err);
       }
     };
 
-    fetchSupabaseData();
-  }, [startOfCurrentWeek, numDays, globalDaysEnabled, supabaseMonthFests, supabaseMonthWorldDays, today]);
+    fetchSQLiteData();
+  }, [startOfCurrentWeek, numDays, globalDaysEnabled, dbMonthFests, dbMonthWorldDays, today]);
 
   const weekData = useMemo<DayInfo[]>(() => {
     const celebrations = getWeekCelebrations(
@@ -379,10 +379,10 @@ export const WeekScreen = ({
       const monthName = GREEK_MONTHS[dateObj.getMonth()];
       const dayNum = dateObj.getDate();
       
-      const remoteFest = supabaseFests.find(f => 
+      const dbFest = dbFests.find(f => 
         f.month?.trim() === monthName?.trim() && Number(f.day) === dayNum
       );
-      const remoteWDs = supabaseWorldDays.filter(w => 
+      const dbWorldDayMatches = dbWorldDays.filter(w => 
         w.month?.trim() === monthName?.trim() && Number(w.day) === dayNum
       );
 
@@ -390,16 +390,16 @@ export const WeekScreen = ({
       let celebs = c.celebrations;
       let wds = c.worldDays;
 
-      if (remoteFest) {
-        const remoteNames = remoteFest.names ? (remoteFest.names as string).split(',').map(n => n.trim()) : [];
-        const remoteCelebs = remoteFest.celebrations ? (remoteFest.celebrations as string).split(',').map(c => c.trim()) : [];
+      if (dbFest) {
+        const remoteNames = dbFest.names ? (dbFest.names as string).split(',').map(n => n.trim()) : [];
+        const remoteCelebs = dbFest.celebrations ? (dbFest.celebrations as string).split(',').map(c => c.trim()) : [];
         
         names = Array.from(new Set([...c.names, ...remoteNames]));
         celebs = Array.from(new Set([...c.celebrations, ...remoteCelebs]));
       }
 
-      if (remoteWDs.length > 0) {
-        const titles = remoteWDs.map(w => w.title).filter(Boolean) as string[];
+      if (dbWorldDayMatches.length > 0) {
+        const titles = dbWorldDayMatches.map(w => w.title).filter(Boolean) as string[];
         if (titles.length > 0) wds = titles;
       }
 
@@ -411,7 +411,7 @@ export const WeekScreen = ({
         dateObj,
       };
     });
-  }, [startOfCurrentWeek, numDays, globalDaysEnabled, supabaseFests, supabaseWorldDays, selectedYear, today]);
+  }, [startOfCurrentWeek, numDays, globalDaysEnabled, dbFests, dbWorldDays, selectedYear, today]);
 
   useEffect(() => {
     // Scroll to today only once and without animation

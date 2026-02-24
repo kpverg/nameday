@@ -1,9 +1,9 @@
-import supabase from '../utils/supabase';
+import { executeQuery } from './sqliteService';
 import {
   getMovableNamedayEntries,
   getMovingFeastForDate,
 } from '../../data/movingCelebrations';
-import { normalizeGreekName } from '../utils/greekUtils';
+import { normalizeGreekName, namesMatch } from '../utils/greekUtils';
 
 export interface SearchResult {
   day: number;
@@ -28,7 +28,7 @@ const GREEK_MONTHS = [
 ];
 
 /**
- * Searches for names in both Supabase and movable celebrations.
+ * Searches for names in both SQLite and movable celebrations.
  * @param query The name to search for.
  * @param selectedYear The year to calculate movable feasts for.
  * @returns An array of SearchResult or an error message.
@@ -42,39 +42,44 @@ export const searchNames = async (
     return { results: [], message: 'Γράψτε ένα όνομα.' };
   }
 
+  const qLower = normalizeGreekName(q);
   const found: SearchResult[] = [];
 
-  // 1. Search Supabase (remote data)
-  const { data, error } = await supabase
-    .from('fests')
-    .select('day, month, names, celebrations')
-    .ilike('names', `%${q}%`);
+  // 1. Search SQLite (local data)
+  const data = await executeQuery<any>(
+    'SELECT day, month, names, celebrations FROM fests WHERE names LIKE ?',
+    [`%${q}%`]
+  );
 
-  if (!error && data) {
+  if (data) {
     data.forEach(entry => {
       // Split names string to array
-      const namesArray = (entry.names as string).split(',').map(n => n.trim());
-      // Re-verify exact match or relevant match (since ilike is partial)
-      // but let's trust ilike for now for better ux
-      found.push({
-        day: Number(entry.day),
-        month: entry.month as string,
-        names: namesArray,
-        celebrations: entry.celebrations ? (entry.celebrations as string).split(',').map(c => c.trim()) : [],
-      });
+      const namesArray = (entry.names as string || '').split(',').map(n => n.trim());
+      
+      // Use namesMatch for stricter criteria
+      if (namesArray.some(name => namesMatch(name, q))) {
+        found.push({
+          day: Number(entry.day),
+          month: entry.month as string,
+          names: namesArray,
+          celebrations: entry.celebrations ? (entry.celebrations as string).split(',').map(c => c.trim()) : [],
+        });
+      }
     });
   }
 
   // 2. Search movable nameday entries for selected year
   const year = selectedYear || new Date().getFullYear();
   const moving = getMovableNamedayEntries(year);
-  const qLower = normalizeGreekName(q);
   
   for (const me of moving) {
-    const namesMatch = me.names && me.names.some((n: string) => normalizeGreekName(n).includes(qLower));
-    const celebrationsMatch = me.celebrations && me.celebrations.some((c: string) => normalizeGreekName(c).includes(qLower));
+    const hasNameMatch = me.names && me.names.some((n: string) => namesMatch(n, q));
+    // For celebrations, we might still want partial match or use namesMatch
+    const hasCelebrationMatch = me.celebrations && me.celebrations.some((c: string) => 
+      normalizeGreekName(c).includes(normalizeGreekName(q))
+    );
     
-    if (namesMatch || celebrationsMatch) {
+    if (hasNameMatch || hasCelebrationMatch) {
       found.push({
         day: me.day,
         month: me.month,

@@ -23,33 +23,11 @@ import { useNotifications } from './src/useNotifications';
 import { getTodayFests } from './src/services/apiservices/todayfest';
 import { getFestsByMonth } from './src/services/apiservices/totalMonthFests';
 import { getTodayWorldDays, getWorldDaysByMonth, WorldDay } from './src/services/apiservices/worldday';
+import { executeQuery } from './src/services/sqliteService';
 import type { Fest } from './src/types/fest';
 import type { Saint } from './src/types/saint';
-import supabase from './src/utils/supabase';
 
 // Fallback inline splash in case import resolution misbehaves
-const InlineSplash = ({ onComplete, backgroundColor, textColor, primaryColor }: { onComplete: () => void, backgroundColor: string, textColor: string, primaryColor: string }) => {
-  useEffect(() => {
-    const timer = setTimeout(onComplete, 1500);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-  return (
-    <View style={[stylesSplash.container, { backgroundColor }]}>
-      <Text style={[stylesSplash.title, { color: primaryColor }]}>
-        Εορτολόγιο
-      </Text>
-      <ActivityIndicator
-        size="large"
-        color={primaryColor}
-        style={stylesSplash.spinner}
-      />
-      <Text style={[stylesSplash.subtitle, { color: textColor }]}>
-        Φόρτωση...
-      </Text>
-    </View>
-  );
-};
-
 function AppContent() {
   const { isLoading, backgroundColor, textColor, globalDaysEnabled, primaryColor } = useAppContext();
   const isDarkMode = useColorScheme() === 'dark';
@@ -66,69 +44,49 @@ function AppContent() {
     async function fetchFests() {
       try {
         const today = new Date();
-        const currentDay = today.getDate();
+        const currentDay = today.getDate().toString();
         const greekMonths = [
           'Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος',
           'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'
         ];
         const currentMonth = greekMonths[today.getMonth()];
 
-        console.log('Fetching today fests...');
         const data = await getTodayFests();
-        console.log('Fetched data (today):', data);
         if (data && data.length > 0) {
           setFests(data);
         }
 
         // Fetch today world days if enabled
         if (globalDaysEnabled) {
-          console.log('Fetching today world days...');
           const wd = await getTodayWorldDays();
-          console.log('Fetched world days (today):', wd);
           setWorldDays(wd);
         }
 
-        // Fetch today saints
-        console.log(`Fetching saints for ${currentDay} ${currentMonth}...`);
-        const { data: saintsData, error: saintsError } = await supabase
-          .from('saint')
-          .select('*')
-          .eq('feast_day', currentDay)
-          .eq('feast_month', currentMonth);
+        // Fetch today saints from SQLite
+        const saintsData = await executeQuery<Saint>(
+          'SELECT * FROM saint WHERE TRIM(feast_day) = ? AND TRIM(feast_month) = ?',
+          [currentDay.trim(), currentMonth.trim()]
+        );
         
-        if (saintsError) {
-          console.error('Error fetching saints:', saintsError);
-        } else if (saintsData) {
-          console.log('Fetched today saints:', saintsData);
+        if (saintsData) {
+          console.log(`Found ${saintsData.length} saints for ${currentDay} ${currentMonth}`);
+          saintsData.forEach(s => console.log(`Saint: ${s.name}, ID: ${s.id}, Image: ${s.image_url}`));
           setTodaySaints(saintsData);
+        } else {
+          console.log(`No saints found for ${currentDay} ${currentMonth}`);
         }
 
-        console.log(`Fetching fests for total month: ${currentMonth}...`);
-        
-        // Debug: Fetch first 3 entries to see column values
-        const { data: debugData } = await supabase.from('fests').select('*').limit(3);
-        console.log('DEBUG: First 3 rows in Supabase:', debugData);
-
         const monthData = await getFestsByMonth(currentMonth);
-        console.log(`Fetched data (month: ${currentMonth}):`, monthData);
         setMonthFests(monthData);
 
         // Fetch month world days if enabled
         if (globalDaysEnabled) {
-          console.log(`Fetching world days for month: ${currentMonth}...`);
           const monthWD = await getWorldDaysByMonth(currentMonth);
-          console.log(`Fetched world days (month: ${currentMonth}):`, monthWD);
           setMonthWorldDays(monthWD);
         }
 
-        if (monthData.length === 0) {
-          console.log('WARNING: No data for current month. Checking possible month values in DB...');
-          const { data: possibleMonths } = await supabase.from('fests').select('month').limit(10);
-          console.log('Possible month values in DB:', possibleMonths);
-        }
-
       } catch (err) {
-        console.error('Supabase error:', err);
+        console.error('SQLite fetch error:', err);
       }
     }
     fetchFests();
@@ -141,22 +99,17 @@ function AppContent() {
   }, [isLoading]);
 
   if (!showApp) {
-    // Prefer external component; fallback to inline if undefined
-    if (SplashLoading) {
-      const Comp: any = SplashLoading;
-      return <Comp onComplete={() => setShowApp(true)} primaryColor={primaryColor} textColor={textColor} />;
-    }
-    return <InlineSplash onComplete={() => setShowApp(true)} backgroundColor={backgroundColor} textColor={textColor} primaryColor={primaryColor} />;
+    return <SplashLoading onComplete={() => setShowApp(true)} primaryColor={primaryColor} textColor={textColor} />;
   }
 
   return (
     <>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <MainScreen 
-        supabaseFests={fests} 
-        supabaseMonthFests={monthFests} 
-        supabaseWorldDays={worldDays}
-        supabaseMonthWorldDays={monthWorldDays}
+        dbFests={fests} 
+        dbMonthFests={monthFests} 
+        dbWorldDays={worldDays}
+        dbMonthWorldDays={monthWorldDays}
         todaySaints={todaySaints}
       />
     </>

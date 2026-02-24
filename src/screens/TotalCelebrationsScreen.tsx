@@ -370,11 +370,11 @@ import { getWorldDaysByMonth, WorldDay } from '../services/apiservices/worldday'
 import type { Fest } from '../types/fest';
 
 export const TotalCelebrationsScreen = ({ 
-  supabaseFests: initialSupabaseFests,
-  supabaseWorldDays: initialSupabaseWorldDays
+  dbFests: initialDbFests,
+  dbWorldDays: initialDbWorldDays
 }: { 
-  supabaseFests?: Fest[],
-  supabaseWorldDays?: WorldDay[]
+  dbFests?: Fest[],
+  dbWorldDays?: WorldDay[]
 }) => {
   const {
     darkModeEnabled,
@@ -395,11 +395,11 @@ export const TotalCelebrationsScreen = ({
   const now = React.useMemo(() => new Date(), []);
   
   // Use state for the month data so we can update it when month changes
-  const [supabaseMonthData, setSupabaseMonthData] = useState<Record<number, Fest[]>>({
-    [now.getMonth()]: initialSupabaseFests || []
+  const [dbMonthData, setDbMonthData] = useState<Record<number, Fest[]>>({
+    [now.getMonth()]: initialDbFests || []
   });
-  const [supabaseWorldDayData, setSupabaseWorldDayData] = useState<Record<number, WorldDay[]>>({
-    [now.getMonth()]: initialSupabaseWorldDays || []
+  const [dbWorldDayData, setDbWorldDayData] = useState<Record<number, WorldDay[]>>({
+    [now.getMonth()]: initialDbWorldDays || []
   });
   const [displayMonthIndex, setDisplayMonthIndex] = useState<number>(
     now.getMonth(),
@@ -408,16 +408,16 @@ export const TotalCelebrationsScreen = ({
 
   // When props change (initial load), update state
   useEffect(() => {
-    if (initialSupabaseFests && initialSupabaseFests.length > 0) {
-      setSupabaseMonthData(prev => ({ ...prev, [now.getMonth()]: initialSupabaseFests }));
+    if (initialDbFests && initialDbFests.length > 0) {
+      setDbMonthData(prev => ({ ...prev, [now.getMonth()]: initialDbFests }));
     }
-  }, [initialSupabaseFests, now]);
+  }, [initialDbFests, now]);
 
   useEffect(() => {
-    if (initialSupabaseWorldDays && initialSupabaseWorldDays.length > 0) {
-      setSupabaseWorldDayData(prev => ({ ...prev, [now.getMonth()]: initialSupabaseWorldDays }));
+    if (initialDbWorldDays && initialDbWorldDays.length > 0) {
+      setDbWorldDayData(prev => ({ ...prev, [now.getMonth()]: initialDbWorldDays }));
     }
-  }, [initialSupabaseWorldDays, now]);
+  }, [initialDbWorldDays, now]);
 
   const flatListRef = useRef<FlatList>(null);
   const lastScrollTime = useRef(0);
@@ -440,18 +440,18 @@ export const TotalCelebrationsScreen = ({
   // Fetch data when month changes or prefetch adjacent months
   useEffect(() => {
     const fetchMonthData = async (monthIdx: number) => {
-      if (supabaseMonthData[monthIdx]) return; // Already fetched
+      if (dbMonthData[monthIdx]) return; // Already fetched
 
       const monthName = GREEK_MONTHS[monthIdx];
-      console.log(`Fetching Supabase data for ${monthName}...`);
+      console.log(`Fetching SQLite data for ${monthName}...`);
       try {
         const newData = await getFestsByMonth(monthName);
-        setSupabaseMonthData(prev => ({ ...prev, [monthIdx]: newData || [] }));
+        setDbMonthData(prev => ({ ...prev, [monthIdx]: newData || [] }));
 
         // Fetch world days if enabled
         if (globalDaysEnabled) {
           const wdData = await getWorldDaysByMonth(monthName);
-          setSupabaseWorldDayData(prev => ({ ...prev, [monthIdx]: wdData || [] }));
+          setDbWorldDayData(prev => ({ ...prev, [monthIdx]: wdData || [] }));
         }
       } catch (error) {
         console.error(`Failed to fetch data for ${monthName}:`, error);
@@ -470,45 +470,45 @@ export const TotalCelebrationsScreen = ({
     if (displayMonthIndex > 0) {
       fetchMonthData(displayMonthIndex - 1);
     }
-  }, [displayMonthIndex, globalDaysEnabled, supabaseMonthData]);
+  }, [displayMonthIndex, globalDaysEnabled, dbMonthData]);
 
-  // Filter for the current display month and merge with Supabase data
+  // Filter for the current display month and merge with SQLite data
   const daysData = React.useMemo(() => {
     // Current month's local data
     const localDays = yearData.filter(d => d.monthIndex === displayMonthIndex);
 
     const monthName = GREEK_MONTHS[displayMonthIndex];
 
-    // Filter Supabase data for this month (just in case)
+    // Filter SQLite data for this month (just in case)
     // We trim to handle potential invisible spaces from DB
-    const currentMonthFests = supabaseMonthData[displayMonthIndex]?.filter(f => 
+    const currentMonthFests = dbMonthData[displayMonthIndex]?.filter(f => 
       f.month?.trim() === monthName?.trim()
     ) || [];
-    const currentMonthWorldDays = supabaseWorldDayData[displayMonthIndex]?.filter(w => 
+    const currentMonthWorldDays = dbWorldDayData[displayMonthIndex]?.filter(w => 
       w.month?.trim() === monthName?.trim()
     ) || [];
 
-    // Map over local days and merge if we have remote data
+    // Map over local days and merge if we have local SQLite data
     return localDays.map(localDay => {
-      // Find matching remote day
-      const remoteDay = currentMonthFests.find(f => Number(f.day) === localDay.day);
-      const remoteWD = currentMonthWorldDays.filter(w => Number(w.day) === localDay.day);
+      // Find matching SQLite day
+      const dbDay = currentMonthFests.find(f => Number(f.day) === localDay.day);
+      const dbWD = currentMonthWorldDays.filter(w => Number(w.day) === localDay.day);
 
       let mergedNames = localDay.names;
       let mergedCelebs = localDay.celebrations;
       let mergedWorldDays = localDay.worldDays;
 
-      if (remoteDay) {
-        const remoteNames = remoteDay.names ? (remoteDay.names as string).split(',').map((n: string) => n.trim()) : [];
-        const remoteCelebs = remoteDay.celebrations ? (remoteDay.celebrations as string).split(',').map((c: string) => c.trim()) : [];
+      if (dbDay) {
+        const remoteNames = dbDay.names ? (dbDay.names as string).split(',').map((n: string) => n.trim()) : [];
+        const remoteCelebs = dbDay.celebrations ? (dbDay.celebrations as string).split(',').map((c: string) => c.trim()) : [];
         
         mergedNames = Array.from(new Set([...localDay.names, ...remoteNames]));
         mergedCelebs = Array.from(new Set([...localDay.celebrations, ...remoteCelebs]));
       }
 
-      if (remoteWD.length > 0) {
-        // Collect titles from all remote world days for this day
-        const wdTitles = remoteWD.map(w => w.title).filter(Boolean) as string[];
+      if (dbWD.length > 0) {
+        // Collect titles from all SQLite world days for this day
+        const wdTitles = dbWD.map(w => w.title).filter(Boolean) as string[];
         if (wdTitles.length > 0) {
           mergedWorldDays = wdTitles;
         }
@@ -522,7 +522,7 @@ export const TotalCelebrationsScreen = ({
       };
     });
 
-  }, [yearData, displayMonthIndex, supabaseMonthData, supabaseWorldDayData]);
+  }, [yearData, displayMonthIndex, dbMonthData, dbWorldDayData]);
 
   // Effect to scroll to today when the screen opens or the month changes to current month
   useEffect(() => {

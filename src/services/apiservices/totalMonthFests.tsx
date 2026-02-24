@@ -1,4 +1,4 @@
-import supabase from '../../utils/supabase'
+import { executeQuery } from '../sqliteService'
 import type { Fest } from '../../types/fest'
 
 /**
@@ -6,30 +6,12 @@ import type { Fest } from '../../types/fest'
  * @param month The Greek name of the month (e.g., 'Φεβρουάριος')
  */
 export async function getFestsByMonth(month: string): Promise<Fest[]> {
-  console.log(`Querying Supabase for all fests in month: "${month}"`);
+  console.log(`Querying SQLite for all fests in month: "${month}"`);
   
-  // First, let's check if there are ANY records in the table
-  const { count, error: countError } = await supabase
-    .from('fests')
-    .select('*', { count: 'exact', head: true });
-  
-  if (!countError) {
-    console.log(`Total records in "fests" table: ${count}`);
-  }
-
-  const { data, error } = await supabase
-    .from('fests')
-    .select('day, month, names, celebrations')
-    .ilike('month', month.trim()) // Use ilike and trim just in case
-    .order('day', { ascending: true });
-
-  if (error) {
-    console.error(`Error fetching fests for ${month}:`, error);
-    throw error;
-  }
-
-  console.log(`Query for "${month}" returned ${data?.length || 0} results.`);
-  return (data ?? []) as Fest[];
+  return await executeQuery<Fest>(
+    'SELECT day, month, names, celebrations FROM fests WHERE month = ? ORDER BY CAST(day AS INTEGER) ASC',
+    [month.trim()]
+  );
 }
 
 export default {

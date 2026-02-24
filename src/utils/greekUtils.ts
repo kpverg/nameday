@@ -65,44 +65,6 @@ export const greekToGreeklish = (str: string): string => {
 };
 
 // Greeklish to Greek conversion
-export const greeklishToGreek = (str: string): string => {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .replace(/th/g, 'θ')
-    .replace(/ts/g, 'τς')
-    .replace(/ch/g, 'χ')
-    .replace(/ph/g, 'φ')
-    .replace(/ou/g, 'ου')
-    .replace(/a/g, 'α')
-    .replace(/b/g, 'β')
-    .replace(/g/g, 'γ')
-    .replace(/d/g, 'δ')
-    .replace(/e/g, 'ε')
-    .replace(/z/g, 'ζ')
-    .replace(/h/g, 'η')
-    .replace(/i/g, 'ι')
-    .replace(/k/g, 'κ')
-    .replace(/l/g, 'λ')
-    .replace(/m/g, 'μ')
-    .replace(/n/g, 'ν')
-    .replace(/o/g, 'ο')
-    .replace(/p/g, 'π')
-    .replace(/r/g, 'ρ')
-    .replace(/s/g, 'σ')
-    .replace(/t/g, 'τ')
-    .replace(/u/g, 'υ')
-    .replace(/v/g, 'β')
-    .replace(/w/g, 'ω')
-    .replace(/y/g, 'υ')
-    .replace(/x/g, 'ξ')
-    .replace(/c/g, 'κ')
-    .replace(/f/g, 'φ')
-    .replace(/j/g, 'τζ')
-    .replace(/q/g, 'κ')
-    .replace(/ /g, '');
-};
-
 const normalizeCache = new Map<string, string>();
 export const normalizeGreekName = (name: string): string => {
   if (!name) return '';
@@ -158,11 +120,7 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
       const nWordStripped = stripEnding(nWord);
       return (
         cWord === nWord ||
-        cWordStripped === nWordStripped ||
-        (cWord.length >= 2 && nWord.includes(cWord)) ||
-        (nWord.length >= 2 && cWord.includes(nWord)) ||
-        (cWordStripped.length >= 2 && nWordStripped.includes(cWordStripped)) ||
-        (nWordStripped.length >= 2 && cWordStripped.includes(nWordStripped))
+        cWordStripped === nWordStripped
       );
     });
   });
@@ -191,11 +149,7 @@ export const namesMatch = (contactName: string, namedayName: string): boolean =>
 
   const greeklishMatch = contactGreeklishWords.some(cWord => {
     return namedayGreeklishWords.some(nWord => {
-      return (
-        cWord === nWord ||
-        (cWord.length >= 2 && nWord.includes(cWord)) ||
-        (nWord.length >= 2 && cWord.includes(nWord))
-      );
+      return cWord === nWord;
     });
   });
 

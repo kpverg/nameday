@@ -15,7 +15,6 @@ import Contacts from 'react-native-contacts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   greekToGreeklish,
-  greeklishToGreek,
   normalizeGreekName,
   namesMatch,
 } from './utils/greekUtils';
