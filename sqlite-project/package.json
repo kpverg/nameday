@@ -1,0 +1,14 @@
+{
+  "name": "sqlite-project",
+  "version": "1.0.0",
+  "description": "A project that uses SQLite3 to manage a database with three tables.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "sqlite3": "^5.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
